@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
-import type { Category, Product, ProductsResponse, SiteText } from "../api";
+import type { Category, SiteText, SuggestHit } from "../api";
 import { api } from "../api";
-import { taka, useDebounced, useFetch } from "../lib";
+import { taka, useDebounced } from "../lib";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { useWishlist } from "../context/WishlistContext";
@@ -84,18 +84,41 @@ export function Header({
       .slice(0, 5);
   }, [q, categories]);
 
-  // Product matches for the suggestions panel - debounced so typing does not
-  // fire a request per keystroke, and skipped until the term is meaningful.
-  const debouncedQ = useDebounced(q, 220);
-  const searchTerm = debouncedQ.trim();
-  const { data: hitData } = useFetch<ProductsResponse>(
-    () =>
-      searchTerm.length < 2
-        ? Promise.resolve({ total: 0, page: 1, limit: 0, products: [] })
-        : api.products({ q: searchTerm, limit: 6 }),
-    [searchTerm],
-  );
-  const productHits: Product[] = searchTerm.length >= 2 ? hitData?.products ?? [] : [];
+  // Product matches for the suggestions panel. Answers are cached per term, and the
+  // previous list stays on screen while the next one loads so the panel never blanks.
+  const searchTerm = useDebounced(q.trim().toLowerCase(), 120);
+  const hitCache = useRef(new Map<string, SuggestHit[]>());
+  const [productHits, setProductHits] = useState<SuggestHit[]>([]);
+  const [searching, setSearching] = useState(false);
+  useEffect(() => {
+    if (searchTerm.length < 2) {
+      setProductHits([]);
+      setSearching(false);
+      return;
+    }
+    const cached = hitCache.current.get(searchTerm);
+    if (cached) {
+      setProductHits(cached);
+      setSearching(false);
+      return;
+    }
+    let alive = true;
+    setSearching(true);
+    api
+      .suggest(searchTerm)
+      .then((r) => {
+        hitCache.current.set(searchTerm, r.products);
+        if (alive) setProductHits(r.products);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (alive) setSearching(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [searchTerm]);
+  const typing = q.trim().length >= 2 && (searching || q.trim().toLowerCase() !== searchTerm);
 
   const submit = (e?: React.FormEvent, term?: string) => {
     e?.preventDefault();
@@ -165,7 +188,7 @@ export function Header({
             >
               <form
                 onSubmit={submit}
-                className="flex items-center overflow-hidden rounded-full border border-slate-200 bg-white shadow-card transition focus-within:border-brand-400 focus-within:ring-4 focus-within:ring-brand-100"
+                className="flex items-center overflow-hidden rounded-full bg-white shadow-card transition focus-within:shadow-lift"
               >
                 <Search className="ml-3.5 h-4 w-4 shrink-0 text-slate-400" />
                 <input
@@ -173,7 +196,7 @@ export function Header({
                   onChange={(e) => setQ(e.target.value)}
                   placeholder="Search medicines, beauty, baby care…"
                   aria-label="Search products"
-                  className="min-w-0 flex-1 bg-transparent px-3 py-2.5 text-sm text-ink-800 outline-none placeholder:text-slate-400"
+                  className="min-w-0 flex-1 border-0 bg-transparent px-3 py-2.5 text-sm text-ink-800 outline-none ring-0 placeholder:text-slate-400 focus-visible:ring-0 focus-visible:ring-offset-0"
                 />
                 <button
                   type="submit"
@@ -214,10 +237,20 @@ export function Header({
                     </>
                   )}
 
+                  {productHits.length === 0 && typing && (
+                    <p className="flex items-center gap-2 px-3 py-2.5 text-xs text-slate-400">
+                      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-brand-200 border-t-brand-600" />
+                      Searching products…
+                    </p>
+                  )}
+
                   {productHits.length > 0 && (
-                    <>
-                      <p className="px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    <div className={`transition-opacity ${typing ? "opacity-60" : ""}`}>
+                      <p className="flex items-center gap-2 px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                         Products
+                        {typing && (
+                          <span className="h-2.5 w-2.5 animate-spin rounded-full border-2 border-brand-200 border-t-brand-600" />
+                        )}
                       </p>
                       {productHits.map((p) => (
                         <Link
@@ -246,7 +279,7 @@ export function Header({
                           </span>
                         </Link>
                       ))}
-                    </>
+                    </div>
                   )}
 
                   <button

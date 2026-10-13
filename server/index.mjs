@@ -191,6 +191,61 @@ app.get("/api/products", ah(async (req, res) => {
   });
 }));
 
+/**
+ * Search-as-you-type index: a lightweight in-memory copy of the visible catalogue,
+ * so header suggestions never wait on LIKE '%term%' table scans.
+ */
+const SUGGEST_TTL_MS = 5 * 60e3;
+let suggestIndex = { at: 0, items: [], loading: null };
+async function loadSuggestIndex() {
+  const rows = await db.all(
+    `SELECT id, slug, name, brand, generic, unit_label AS unitLabel, price, image, trending_score AS t
+     FROM products WHERE hidden = 0`,
+  );
+  const items = rows.map((r) => ({
+    ...r,
+    name_l: String(r.name ?? "").toLowerCase(),
+    other_l: `${r.brand ?? ""} ${r.generic ?? ""}`.toLowerCase(),
+  }));
+  suggestIndex = { at: Date.now(), items, loading: null };
+}
+async function suggestItems() {
+  const stale = Date.now() - suggestIndex.at > SUGGEST_TTL_MS;
+  if (stale && !suggestIndex.loading) {
+    suggestIndex.loading = loadSuggestIndex().catch((e) => {
+      suggestIndex.loading = null;
+      throw e;
+    });
+  }
+  if (!suggestIndex.items.length) await suggestIndex.loading;
+  return suggestIndex.items;
+}
+
+app.get("/api/search/suggest", ah(async (req, res) => {
+  const term = String(req.query.q ?? "").trim().toLowerCase().slice(0, 60);
+  const limit = Math.min(parseInt(req.query.limit, 10) || 6, 12);
+  if (term.length < 2) return res.json({ products: [] });
+  const items = await suggestItems();
+  const scored = [];
+  for (const p of items) {
+    const at = p.name_l.indexOf(term);
+    let score;
+    if (at === 0) score = 0;
+    else if (at > 0 && /[\s\-(/]/.test(p.name_l[at - 1])) score = 1;
+    else if (at > 0) score = 2;
+    else if (p.other_l.includes(term)) score = 3;
+    else continue;
+    scored.push([score, p]);
+  }
+  scored.sort((a, b) => a[0] - b[0] || b[1].t - a[1].t || a[1].name_l.length - b[1].name_l.length);
+  res.set("Cache-Control", "public, max-age=60");
+  res.json({
+    products: scored.slice(0, limit).map(([, p]) => ({
+      id: p.id, slug: p.slug, name: p.name, brand: p.brand, unitLabel: p.unitLabel, price: p.price, image: p.image,
+    })),
+  });
+}));
+
 app.get("/api/products/:id", ah(async (req, res) => {
   const row = await db.get(`${qAll} WHERE id = ?`, [Number(req.params.id)]);
   if (!row || row.hidden) return res.status(404).json({ error: "Product not found" });
@@ -298,4 +353,5 @@ app.listen(PORT, () => {
   console.log(`Niramoy Pharmacy API listening on http://localhost:${PORT}`);
   console.log(`Push: ${pushConfigured() ? "Firebase Cloud Messaging enabled" : "FCM off (no FIREBASE_SERVICE_ACCOUNT) - live delivery only"}`);
   console.log(`DB: mysql://${process.env.MYSQL_HOST || "127.0.0.1"}/${process.env.MYSQL_DATABASE || "niramoy_web"}`);
+  suggestItems().catch((e) => console.error("search index warm-up failed:", e.message));
 });

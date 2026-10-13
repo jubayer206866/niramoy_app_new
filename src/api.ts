@@ -60,6 +60,8 @@ export interface ProductsResponse {
   products: Product[];
 }
 
+export type SuggestHit = Pick<Product, "id" | "slug" | "name" | "brand" | "unitLabel" | "price" | "image">;
+
 export interface HomeData {
   banners: Banner[];
   sections: { title: string; cat: string; products: Product[] }[];
@@ -335,6 +337,7 @@ export const api = {
   site: () => get<SiteText>("/api/site"),
   home: () => get<HomeData>("/api/home"),
   products: (query: ProductQuery) => get<ProductsResponse>(`/api/products${qs(query)}`),
+  suggest: (q: string) => get<{ products: SuggestHit[] }>(`/api/search/suggest${qs({ q, limit: 6 })}`),
   product: (id: string | number) =>
     get<{ product: Product; related: Product[] }>(`/api/products/${id}`),
   brands: () => get<Brand[]>("/api/brands"),
