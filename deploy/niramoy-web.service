@@ -1,0 +1,19 @@
+[Unit]
+Description=Niramoy Pharmacy web (Express +mysql)
+After=network.target mysql.service
+Wants=mysql.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/html/niramoy-web
+EnvironmentFile=/etc/niramoy-web.env
+Environment=NODE_ENV=production
+Environment=PORT=4000
+ExecStart=/usr/bin/node --max-old-space-size=256 server/index.mjs
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

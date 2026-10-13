@@ -1,0 +1,28 @@
+node_modules/
+dist/
+*.log
+*.tsbuildinfo
+.DS_Store
+Thumbs.db
+
+.env
+.env.*
+!.env.example
+
+# SQLite catalogue/users databases (data now lives in MySQL; arogga.db is >100MB)
+data/
+
+# Scraper output and reference screenshots
+.scrape/
+
+# Product images and admin uploads are served from disk, not versioned
+public/img/products/
+public/img/uploads/
+
+# Capacitor
+mobile/www/
+mobile/android/app/src/main/assets/public/
+mobile/android/app/src/main/assets/capacitor.config.json
+mobile/android/app/src/main/assets/capacitor.plugins.json
+mobile/ios/App/Pods/
+mobile/ios/App/build/

@@ -1,0 +1,24 @@
+{
+  "name": "niramoy-pharmacy-app",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Capacitor (Android/iOS) shell for the Niramoy Pharmacy storefront",
+  "scripts": {
+    "build": "node build.mjs",
+    "sync": "node build.mjs --sync",
+    "android": "node build.mjs --sync && cap open android",
+    "android:run": "node run-device.mjs",
+    "android:watch": "node run-device.mjs --wait",
+    "ios": "node build.mjs --sync && cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/ios": "^8.5.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.2"
+  }
+}
