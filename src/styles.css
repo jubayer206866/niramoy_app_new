@@ -213,6 +213,10 @@
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
   }
+  /* sideways-only panes (tables, chip rows) must still hand vertical wheel/swipe to the page */
+  .scroll-native.overflow-x-auto {
+    overscroll-behavior-y: auto;
+  }
   .glass {
     @apply border-b border-white/50 bg-white/80 backdrop-blur-xl;
   }

@@ -30,7 +30,7 @@ export default function WishlistPage() {
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2 font-display text-2xl font-extrabold">
-            <Heart className="h-6 w-6 text-rose-500" /> Your wishlist
+            <Heart className="h-6 w-6 text-rose-500" /> Saved items
           </h1>
           <p className="text-sm text-slate-500">
             {products.length} saved product{products.length === 1 ? "" : "s"}
@@ -64,7 +64,7 @@ export default function WishlistPage() {
       )}
 
       {!loading && products.length > 0 && (
-        <div className="animate-fadeUp grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        <div className="animate-fadeUp grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
           {products.map((p) => (
             <ProductCard key={p.id} product={p} />
           ))}

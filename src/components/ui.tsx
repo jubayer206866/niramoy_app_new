@@ -319,21 +319,35 @@ export function StatCard({
   value,
   hint,
   icon,
+  to,
 }: {
   label: string;
   value: string;
   hint?: string;
   icon?: ReactNode;
+  to?: string;
 }) {
-  return (
-    <div className="stats-card">
+  const body = (
+    <>
       <div className="flex items-center justify-between">
         <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</span>
         {icon && <span className="text-brand-500">{icon}</span>}
       </div>
       <p className="mt-2 font-display text-2xl font-extrabold text-ink-900">{value}</p>
-      {hint && <p className="mt-0.5 text-xs text-slate-400">{hint}</p>}
-    </div>
+      {hint && (
+        <p className="mt-0.5 flex items-center gap-0.5 text-xs text-slate-400">
+          {hint}
+          {to && <ChevronRight className="h-3.5 w-3.5" />}
+        </p>
+      )}
+    </>
+  );
+  return to ? (
+    <Link to={to} className="stats-card block transition hover:ring-brand-200 active:scale-[.98]">
+      {body}
+    </Link>
+  ) : (
+    <div className="stats-card">{body}</div>
   );
 }
 

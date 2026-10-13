@@ -63,12 +63,13 @@ export default function AccountOverview() {
       {loading && !summary ? (
         <PageLoading rows={2} />
       ) : (
-        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <StatCard
             label="Orders"
             value={String(summary?.orders ?? 0)}
             hint="Lifetime orders placed"
             icon={<Package className="h-4 w-4" />}
+            to="/account/orders"
           />
           <StatCard
             label="Total spend"
@@ -77,16 +78,18 @@ export default function AccountOverview() {
             icon={<Truck className="h-4 w-4" />}
           />
           <StatCard
-            label="Wishlist"
+            label="Saved"
             value={String(summary?.wishlist ?? wishlistCount)}
             hint="Saved products"
             icon={<Heart className="h-4 w-4" />}
+            to="/account/wishlist"
           />
           <StatCard
             label="Addresses"
             value={String(summary?.addresses ?? 0)}
             hint="Delivery locations"
             icon={<MapPin className="h-4 w-4" />}
+            to="/account/addresses"
           />
         </section>
       )}
@@ -187,7 +190,7 @@ export default function AccountOverview() {
             <SectionHeading
               title="From your wishlist"
               action={
-                <Link to="/wishlist" className="link text-sm">
+                <Link to="/account/wishlist" className="link text-sm">
                   View all
                 </Link>
               }

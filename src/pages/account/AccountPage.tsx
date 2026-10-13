@@ -18,10 +18,10 @@ import {
 
 const NAV = [
   { to: "/account", label: "Dashboard", icon: <Grid className="h-4 w-4" />, end: true },
+  { to: "/account/wishlist", label: "Saved", icon: <Heart className="h-4 w-4" /> },
   { to: "/account/orders", label: "My orders", icon: <Package className="h-4 w-4" /> },
   { to: "/account/wallet", label: "Wallet", icon: <Wallet className="h-4 w-4" /> },
   { to: "/account/notifications", label: "Notifications", icon: <Bell className="h-4 w-4" /> },
-  { to: "/wishlist", label: "Wishlist", icon: <Heart className="h-4 w-4" /> },
   { to: "/account/addresses", label: "Addresses", icon: <MapPin className="h-4 w-4" /> },
   { to: "/account/profile", label: "Profile & security", icon: <Lock className="h-4 w-4" /> },
 ];

@@ -48,14 +48,7 @@ export default function App() {
         <Route path="/checkout" element={<CheckoutPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
-        <Route
-          path="/wishlist"
-          element={
-            <RequireAuth>
-              <WishlistPage />
-            </RequireAuth>
-          }
-        />
+        <Route path="/wishlist" element={<Navigate to="/account/wishlist" replace />} />
         <Route
           path="/account"
           element={
@@ -69,6 +62,7 @@ export default function App() {
           <Route path="orders/:id" element={<AccountOrderDetail />} />
           <Route path="wallet" element={<AccountWallet />} />
           <Route path="notifications" element={<AccountNotifications />} />
+          <Route path="wishlist" element={<WishlistPage />} />
           <Route path="addresses" element={<AccountAddresses />} />
           <Route path="profile" element={<AccountProfile />} />
         </Route>

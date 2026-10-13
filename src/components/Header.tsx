@@ -296,7 +296,7 @@ export function Header({
             {/* actions */}
             <div className="ml-auto flex items-center gap-1.5">
               <Link
-                to="/wishlist"
+                to="/account/wishlist"
                 className="btn-icon relative"
                 aria-label={`Wishlist (${wishlist.count})`}
               >
@@ -365,7 +365,7 @@ export function Header({
                           { to: "/account/orders", label: "My orders", icon: <Package className="h-4 w-4" /> },
                           { to: "/account/wallet", label: "Wallet", icon: <Wallet className="h-4 w-4" /> },
                           { to: "/account/notifications", label: "Notifications", icon: <Bell className="h-4 w-4" /> },
-                          { to: "/wishlist", label: "Wishlist", icon: <Heart className="h-4 w-4" /> },
+                          { to: "/account/wishlist", label: "Wishlist", icon: <Heart className="h-4 w-4" /> },
                           { to: "/account/addresses", label: "Addresses", icon: <MapPin className="h-4 w-4" /> },
                           { to: "/account/profile", label: "Profile & security", icon: <Lock className="h-4 w-4" /> },
                         ].map((item) => (
@@ -522,7 +522,7 @@ export function Header({
             <div className="grid gap-1">
               {[
                 { to: "/products", label: "All products" },
-                { to: "/wishlist", label: "Wishlist" },
+                { to: "/account/wishlist", label: "Wishlist" },
                 { to: "/account/orders", label: "My orders" },
                 { to: "/account/wallet", label: "Wallet" },
                 { to: "/cart", label: "Cart" },
@@ -609,7 +609,7 @@ export function Footer({
               { to: "/account", label: "Dashboard" },
               { to: "/account/orders", label: "Order history" },
               { to: "/account/wallet", label: "Wallet" },
-              { to: "/wishlist", label: "Wishlist" },
+              { to: "/account/wishlist", label: "Wishlist" },
               { to: "/account/addresses", label: "Saved addresses" },
               { to: "/login", label: "Sign in" },
             ].map((l) => (
@@ -652,19 +652,21 @@ export function Footer({
 
 export function MobileNav() {
   const { count } = useCart();
-  const wishlist = useWishlist();
   const { pathname } = useLocation();
 
   const items = [
     { to: "/", label: "Home", icon: <Home className="h-5 w-5" />, badge: 0 },
     { to: "/products", label: "Shop", icon: <Grid className="h-5 w-5" />, badge: 0 },
-    { to: "/wishlist", label: "Saved", icon: <Heart className="h-5 w-5" />, badge: wishlist.count },
+    { to: "/account/orders", label: "Orders", icon: <Package className="h-5 w-5" />, badge: 0 },
     { to: "/account", label: "Account", icon: <User className="h-5 w-5" />, badge: 0 },
     { to: "/cart", label: "Cart", icon: <Cart className="h-5 w-5" />, badge: count },
   ];
 
-  const isActive = (to: string) =>
-    to === "/" ? pathname === "/" : pathname.startsWith(to.split("?")[0]);
+  const isActive = (to: string) => {
+    if (to === "/") return pathname === "/";
+    if (to === "/account") return pathname.startsWith("/account") && !pathname.startsWith("/account/orders");
+    return pathname.startsWith(to);
+  };
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
