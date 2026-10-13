@@ -21,9 +21,18 @@ import {
   validateRegistration,
   verifyPassword,
 } from "./auth.mjs";
+import {
+  InsufficientBalanceError,
+  notifyTxn,
+  orderRefunded,
+  payOrderFromWallet,
+  walletBalance,
+} from "./wallet.mjs";
+import { notifyOrderStatus, orderEvents, recordOrderEvent, unreadCount } from "./notifications.mjs";
 
 const DELIVERY_FREE_OVER = 1000;
 const DELIVERY_FEE = 60;
+const PAYMENT_METHODS = ["cod", "bkash", "nagad", "rocket", "card", "wallet"];
 
 const str = (v, max = 500) => String(v ?? "").trim().slice(0, max);
 
@@ -60,7 +69,8 @@ export function createAccountRouter({ productsByIds }) {
        FROM order_items WHERE order_id = ? ORDER BY id`,
       [orderId],
     );
-    return { ...order, items };
+    const walletRefunded = order.paymentMethod === "wallet" && (await orderRefunded(orderId));
+    return { ...order, items, events: await orderEvents(orderId), walletRefunded };
   };
 
   // ---------------------------------------------------------------- auth
@@ -84,8 +94,8 @@ export function createAccountRouter({ productsByIds }) {
     );
 
     const userId = Number(info.insertId);
-    const { token, expires } = await createSession(userId, req.headers["user-agent"]);
-    setSessionCookie(res, token, expires);
+    const { token } = await createSession(userId, req.headers["user-agent"]);
+    setSessionCookie(res, token);
     const user = await db.get(
       "SELECT id,name,email,phone,role,created_at AS createdAt FROM users WHERE id = ?",
       [userId],
@@ -108,8 +118,8 @@ export function createAccountRouter({ productsByIds }) {
     if (!row || !verifyPassword(password, row.password_hash)) {
       return res.status(401).json({ error: "Email or password is incorrect." });
     }
-    const { token, expires } = await createSession(row.id, req.headers["user-agent"]);
-    setSessionCookie(res, token, expires);
+    const { token } = await createSession(row.id, req.headers["user-agent"]);
+    setSessionCookie(res, token);
     res.json({ user: publicUser(row), token });
   }));
 
@@ -134,6 +144,7 @@ export function createAccountRouter({ productsByIds }) {
       defaultAddress,
       wishlistCount,
       orderCount,
+      unreadNotifications: req.user ? await unreadCount(req.user.id) : 0,
     });
   }));
 
@@ -336,11 +347,13 @@ export function createAccountRouter({ productsByIds }) {
     const city = str(req.body?.city, 40) || "Dhaka";
     const email = str(req.body?.email, 120);
     const note = str(req.body?.note, 300);
-    const paymentMethod = ["cod", "bkash", "card"].includes(req.body?.paymentMethod)
+    const paymentMethod = PAYMENT_METHODS.includes(req.body?.paymentMethod)
       ? req.body.paymentMethod
       : "cod";
     if (!name || !phone || address.length < 6)
       return res.status(400).json({ error: "Name, phone and delivery address are required." });
+    if (paymentMethod === "wallet" && !req.user)
+      return res.status(401).json({ error: "Sign in to pay with your wallet." });
 
     const lines = items.map((i) => {
       const p = byId.get(i.id);
@@ -361,43 +374,58 @@ export function createAccountRouter({ productsByIds }) {
     const total = subtotal + deliveryFee - discount;
     const id = newOrderId();
 
-    await db.tx(async (q) => {
-      await q.run(
-        `INSERT INTO orders (id,user_id,name,phone,email,address,city,note,payment_method,
-          subtotal,delivery_fee,discount,total,items_count,status,created_at)
-         VALUES (:id,:userId,:name,:phone,:email,:address,:city,:note,:paymentMethod,
-          :subtotal,:deliveryFee,:discount,:total,:itemsCount,'placed',:createdAt)`,
-        {
-          id,
-          userId: req.user?.id ?? null,
-          name,
-          phone,
-          email,
-          address,
-          city,
-          note,
-          paymentMethod,
-          subtotal,
-          deliveryFee,
-          discount,
-          total,
-          itemsCount: lines.reduce((n, l) => n + l.qty, 0),
-          createdAt: now(),
-        },
-      );
-      for (const l of lines) {
+    let walletTxnId = null;
+    try {
+      await db.tx(async (q) => {
+        if (paymentMethod === "wallet") walletTxnId = await payOrderFromWallet(q, req.user.id, id, total);
         await q.run(
-          `INSERT INTO order_items (order_id,product_id,name,slug,unit_label,image,price,mrp,qty)
-           VALUES (:orderId,:productId,:name,:slug,:unitLabel,:image,:price,:mrp,:qty)`,
-          { ...l, orderId: id },
+          `INSERT INTO orders (id,user_id,name,phone,email,address,city,note,payment_method,
+            subtotal,delivery_fee,discount,total,items_count,status,created_at)
+           VALUES (:id,:userId,:name,:phone,:email,:address,:city,:note,:paymentMethod,
+            :subtotal,:deliveryFee,:discount,:total,:itemsCount,'placed',:createdAt)`,
+          {
+            id,
+            userId: req.user?.id ?? null,
+            name,
+            phone,
+            email,
+            address,
+            city,
+            note,
+            paymentMethod,
+            subtotal,
+            deliveryFee,
+            discount,
+            total,
+            itemsCount: lines.reduce((n, l) => n + l.qty, 0),
+            createdAt: now(),
+          },
         );
+        for (const l of lines) {
+          await q.run(
+            `INSERT INTO order_items (order_id,product_id,name,slug,unit_label,image,price,mrp,qty)
+             VALUES (:orderId,:productId,:name,:slug,:unitLabel,:image,:price,:mrp,:qty)`,
+            { ...l, orderId: id },
+          );
+        }
+        await recordOrderEvent(id, "placed", "", null, q);
+        if (req.user && req.body?.saveAddress) {
+          await saveAddress(req.user.id, { name, phone, address, city }, null, q);
+        }
+      });
+    } catch (err) {
+      if (err instanceof InsufficientBalanceError) {
+        return res.status(400).json({ error: err.message, balance: err.balance });
       }
-      if (req.user && req.body?.saveAddress) {
-        await saveAddress(req.user.id, { name, phone, address, city }, null, q);
-      }
-    });
+      throw err;
+    }
 
-    res.status(201).json({ order: await readOrder(id) });
+    const order = await readOrder(id);
+    res.status(201).json({ order });
+    if (walletTxnId) void notifyTxn(req.user.id, walletTxnId, "customer").catch(() => {});
+    void notifyOrderStatus(order, "placed").catch((err) =>
+      console.warn(`orders: notify failed (${err.message})`),
+    );
   }));
 
   router.get("/api/account/orders", requireUser, ah(async (req, res) => {
@@ -435,6 +463,7 @@ export function createAccountRouter({ productsByIds }) {
     const wishlist = (await db.get("SELECT COUNT(*) n FROM wishlist WHERE user_id = ?", [req.user.id])).n;
     const addresses = (await db.get("SELECT COUNT(*) n FROM addresses WHERE user_id = ?", [req.user.id])).n;
     const reviews = (await db.get("SELECT COUNT(*) n FROM reviews WHERE user_id = ?", [req.user.id])).n;
+    const { balance: wallet } = await walletBalance(req.user.id);
     res.json({
       orders: orders.n,
       spend: orders.spend,
@@ -442,6 +471,7 @@ export function createAccountRouter({ productsByIds }) {
       addresses,
       reviews,
       saved: orders.spend,
+      wallet,
     });
   }));
 

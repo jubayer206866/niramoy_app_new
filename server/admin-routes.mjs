@@ -14,13 +14,26 @@ import { fileURLToPath } from "node:url";
 import db, { now } from "./db.mjs";
 import { ah, requireAdmin } from "./auth.mjs";
 import { saveOverride, dropOverride, readOverride } from "./admin-overrides.mjs";
+import {
+  mountAdminWallet,
+  notifyTxn,
+  orderRefunded,
+  refundOrderToWallet,
+  walletBalance,
+} from "./wallet.mjs";
+import {
+  ORDER_STATUSES,
+  mountAdminNotifications,
+  notifyOrderStatus,
+  orderEvents,
+  recordOrderEvent,
+} from "./notifications.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 const PUBLIC_IMG = path.join(ROOT, "public", "img");
 const UPLOAD_DIR = path.join(PUBLIC_IMG, "uploads");
 
-const ORDER_STATUSES = ["placed", "confirmed", "shipped", "delivered", "cancelled"];
 const UPLOAD_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif", ".avif", ".svg", ".ico"]);
 const MEDIA_DIRS = {
   uploads: UPLOAD_DIR,
@@ -138,12 +151,15 @@ export function createAdminRouter() {
 
   const count = async (sql, params) => (await db.get(sql, params)).n;
 
+  mountAdminWallet(router);
+  mountAdminNotifications(router);
+
   // ------------------------------------------------------------- overview
   router.get("/overview", ah(async (_req, res) => {
     const kpis = {
       orders: await count("SELECT COUNT(*) n FROM orders"),
       ordersToday: await count("SELECT COUNT(*) n FROM orders WHERE created_at >= UTC_DATE()"),
-      pending: await count("SELECT COUNT(*) n FROM orders WHERE status IN ('placed','confirmed')"),
+      pending: await count("SELECT COUNT(*) n FROM orders WHERE status IN ('placed','confirmed','packed')"),
       revenue: (await db.get("SELECT COALESCE(SUM(total),0) v FROM orders WHERE status != 'cancelled'")).v,
       customers: await count("SELECT COUNT(*) n FROM users WHERE role != 'admin'"),
       newCustomers7d: await count(
@@ -624,20 +640,40 @@ export function createAdminRouter() {
           [customer.id],
         )
       : [];
-    res.json({ order: { ...order, items }, customer, customerOrders });
+    const events = await orderEvents(order.id);
+    const walletRefunded = order.paymentMethod === "wallet" && (await orderRefunded(order.id));
+    res.json({ order: { ...order, items, events, walletRefunded }, customer, customerOrders });
   }));
 
   router.patch("/orders/:id", ah(async (req, res) => {
     const id = str(req.params.id, 40);
     const status = str(req.body?.status, 20);
+    const note = str(req.body?.note, 300);
     if (!ORDER_STATUSES.includes(status)) {
       return res.status(400).json({ error: `Status must be one of: ${ORDER_STATUSES.join(", ")}.` });
     }
     const order = await db.get(`${ORDER_SELECT} WHERE id = ?`, [id]);
     if (!order) return res.status(404).json({ error: "Order not found." });
-    await db.run("UPDATE orders SET status = ? WHERE id = ?", [status, id]);
+    if (order.status === status) {
+      return res.status(409).json({ error: "The order already has this status." });
+    }
+    if (order.status === "cancelled" && order.paymentMethod === "wallet" && (await orderRefunded(id))) {
+      return res.status(409).json({
+        error: "This order was paid from the wallet and refunded when it was cancelled, so it can't be reopened. Ask the customer to order again.",
+      });
+    }
+    let refund = null;
+    await db.tx(async (q) => {
+      await q.run("UPDATE orders SET status = ? WHERE id = ?", [status, id]);
+      await recordOrderEvent(id, status, note, req.user.id, q);
+      if (status === "cancelled") refund = await refundOrderToWallet(q, id, note);
+    });
     const items = await db.all(ORDER_ITEMS_SELECT, [id]);
-    res.json({ order: { ...order, status, items } });
+    res.json({ order: { ...order, status, items, events: await orderEvents(id) }, refunded: refund?.amount ?? 0 });
+    void (async () => {
+      await notifyOrderStatus({ ...order, status }, status, note, refund?.amount ?? 0);
+      if (refund) await notifyTxn(refund.userId, refund.txnId, "admin");
+    })().catch((err) => console.warn(`orders: notify failed (${err.message})`));
   }));
 
   // ----------------------------------------------------------- customers
@@ -693,6 +729,7 @@ export function createAdminRouter() {
       addresses: addresses.map((a) => ({ ...a, isDefault: !!a.isDefault })),
       orders,
       reviews,
+      wallet: await walletBalance(id),
     });
   }));
 

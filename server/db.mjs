@@ -219,6 +219,67 @@ const SCHEMA = [
     KEY idx_reviews_user (user_id),
     CONSTRAINT fk_reviews_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   ) ${TABLE_OPTS}`,
+  // Wallet ledger: the balance is always derived from these rows (see wallet.mjs).
+  `CREATE TABLE IF NOT EXISTS wallet_transactions (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    type VARCHAR(20) NOT NULL,
+    method VARCHAR(20) NOT NULL,
+    account VARCHAR(120) NOT NULL DEFAULT '',
+    amount DECIMAL(12,2) NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    reference VARCHAR(40) NOT NULL,
+    note VARCHAR(300) NOT NULL DEFAULT '',
+    created_at DATETIME(3) NOT NULL,
+    processed_at DATETIME(3) NULL,
+    processed_by INT NULL,
+    UNIQUE KEY uq_wallet_reference (reference),
+    KEY idx_wallet_user (user_id, created_at),
+    KEY idx_wallet_status (type, status),
+    CONSTRAINT fk_wallet_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  ) ${TABLE_OPTS}`,
+  // One row per status change, so customers see when each delivery step happened.
+  `CREATE TABLE IF NOT EXISTS order_events (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    order_id VARCHAR(40) NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    note VARCHAR(300) NOT NULL DEFAULT '',
+    created_at DATETIME(3) NOT NULL,
+    created_by INT NULL,
+    KEY idx_order_events_order (order_id, created_at),
+    CONSTRAINT fk_order_events_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+  ) ${TABLE_OPTS}`,
+  // user_id NULL = sent to every customer (admin notices and offers).
+  `CREATE TABLE IF NOT EXISTS notifications (
+    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NULL,
+    kind VARCHAR(20) NOT NULL,
+    title VARCHAR(140) NOT NULL,
+    body VARCHAR(600) NOT NULL DEFAULT '',
+    link VARCHAR(300) NOT NULL DEFAULT '',
+    image VARCHAR(500) NOT NULL DEFAULT '',
+    created_at DATETIME(3) NOT NULL,
+    created_by INT NULL,
+    push_sent INT NOT NULL DEFAULT 0,
+    KEY idx_notifications_user (user_id, created_at),
+    KEY idx_notifications_created (created_at),
+    CONSTRAINT fk_notifications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  ) ${TABLE_OPTS}`,
+  `CREATE TABLE IF NOT EXISTS notification_reads (
+    user_id INT NOT NULL PRIMARY KEY,
+    seen_at DATETIME(3) NOT NULL,
+    CONSTRAINT fk_notification_reads_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  ) ${TABLE_OPTS}`,
+  // FCM device tokens. user_id NULL = app installed but signed out (still gets offers).
+  `CREATE TABLE IF NOT EXISTS push_tokens (
+    token VARCHAR(512) NOT NULL PRIMARY KEY,
+    user_id INT NULL,
+    platform VARCHAR(20) NOT NULL DEFAULT 'android',
+    created_at DATETIME(3) NOT NULL,
+    updated_at DATETIME(3) NOT NULL,
+    KEY idx_push_tokens_user (user_id),
+    CONSTRAINT fk_push_tokens_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+  ) ${TABLE_OPTS}`,
   `CREATE TABLE IF NOT EXISTS admin_overrides (
     entity VARCHAR(20) NOT NULL,
     \`key\` VARCHAR(191) NOT NULL,

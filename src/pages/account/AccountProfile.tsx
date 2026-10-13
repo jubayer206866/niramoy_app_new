@@ -152,7 +152,7 @@ export default function AccountProfile() {
       <section className="panel border-rose-100">
         <h2 className="font-display text-base font-bold text-rose-600">Session</h2>
         <p className="mt-1 text-xs text-slate-500">
-          You are signed in on this device. Sessions expire after 30 days of inactivity.
+          You are signed in on this device and will stay signed in until you log out.
         </p>
         <button
           className="btn-outline mt-3 text-rose-600"

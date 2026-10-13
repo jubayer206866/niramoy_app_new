@@ -18,6 +18,8 @@ import AccountOrders from "./pages/account/AccountOrders";
 import AccountOrderDetail from "./pages/account/AccountOrderDetail";
 import AccountAddresses from "./pages/account/AccountAddresses";
 import AccountProfile from "./pages/account/AccountProfile";
+import AccountWallet from "./pages/account/AccountWallet";
+import AccountNotifications from "./pages/account/AccountNotifications";
 import NotFoundPage from "./pages/NotFoundPage";
 
 // The whole admin panel is one lazy chunk - storefront visitors never download it.
@@ -65,6 +67,8 @@ export default function App() {
           <Route index element={<AccountOverview />} />
           <Route path="orders" element={<AccountOrders />} />
           <Route path="orders/:id" element={<AccountOrderDetail />} />
+          <Route path="wallet" element={<AccountWallet />} />
+          <Route path="notifications" element={<AccountNotifications />} />
           <Route path="addresses" element={<AccountAddresses />} />
           <Route path="profile" element={<AccountProfile />} />
         </Route>

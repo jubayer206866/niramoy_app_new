@@ -6,7 +6,10 @@ import crypto from "node:crypto";
 import db, { now } from "./db.mjs";
 
 export const SESSION_COOKIE = "ag_session";
-const SESSION_DAYS = 30;
+/** Sessions never expire; they end only on logout or a password change. */
+const SESSION_NEVER_EXPIRES = new Date("9999-12-31T00:00:00.000Z");
+/** Browsers cap cookie lifetime at ~400 days, so the cookie is renewed on use. */
+const COOKIE_MAX_AGE_MS = 400 * 864e5;
 
 // ---------- passwords ----------
 export function hashPassword(password) {
@@ -32,12 +35,11 @@ export const sha256 = (s) => crypto.createHash("sha256").update(s).digest("hex")
 
 export async function createSession(userId, userAgent = "") {
   const token = crypto.randomBytes(32).toString("base64url");
-  const expires = new Date(Date.now() + SESSION_DAYS * 864e5);
   await db.run(
     "INSERT INTO sessions (token_hash,user_id,created_at,expires_at,user_agent) VALUES (?,?,?,?,?)",
-    [sha256(token), userId, now(), expires, String(userAgent ?? "").slice(0, 200)],
+    [sha256(token), userId, now(), SESSION_NEVER_EXPIRES, String(userAgent ?? "").slice(0, 200)],
   );
-  return { token, expires: expires.toISOString() };
+  return { token };
 }
 
 export async function destroySession(token) {
@@ -46,19 +48,13 @@ export async function destroySession(token) {
 
 export async function userForToken(token) {
   if (!token) return null;
-  const row = await db.get(
-    `SELECT s.expires_at AS expiresAt, u.id,u.name,u.email,u.phone,u.role,u.created_at AS createdAt
+  const user = await db.get(
+    `SELECT u.id,u.name,u.email,u.phone,u.role,u.created_at AS createdAt
      FROM sessions s JOIN users u ON u.id = s.user_id
      WHERE s.token_hash = ?`,
     [sha256(token)],
   );
-  if (!row) return null;
-  if (new Date(row.expiresAt).getTime() < Date.now()) {
-    await destroySession(token);
-    return null;
-  }
-  const { expiresAt: _e, ...user } = row;
-  return user;
+  return user ?? null;
 }
 
 // ---------- cookies ----------
@@ -74,12 +70,12 @@ export function parseCookies(header = "") {
   return out;
 }
 
-export function setSessionCookie(res, token, expires) {
+export function setSessionCookie(res, token) {
   res.cookie(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
-    expires: new Date(expires),
+    maxAge: COOKIE_MAX_AGE_MS,
   });
 }
 
@@ -92,12 +88,14 @@ export function clearSessionCookie(res) {
  * packaged mobile app, which is cross-origin and cannot use cookies) and
  * attaches req.user.
  */
-export function attachUser(req, _res, next) {
-  const token =
-    req.headers["x-session-token"] || parseCookies(req.headers.cookie)[SESSION_COOKIE] || null;
+export function attachUser(req, res, next) {
+  const headerToken = req.headers["x-session-token"] || null;
+  const cookieToken = parseCookies(req.headers.cookie)[SESSION_COOKIE] || null;
+  const token = headerToken || cookieToken;
   req.sessionToken = token;
   userForToken(token).then((user) => {
     req.user = user;
+    if (user && !headerToken && req.path.startsWith("/api/")) setSessionCookie(res, cookieToken);
     next();
   }, next);
 }

@@ -14,6 +14,7 @@
  *   VITE_API_BASE=https://demo.example.com npm run build # deployed API
  */
 import { spawnSync } from "node:child_process";
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -47,12 +48,21 @@ try {
   );
 }
 
+// Firebase push needs google-services.json in the Android project; without it
+// the plugin crashes on register(), so the app only enables it when present.
+const pushEnabled = fs.existsSync(path.join(HERE, "android", "app", "google-services.json"));
+console.log(
+  pushEnabled
+    ? "push: google-services.json found - Firebase push enabled"
+    : "push: no android/app/google-services.json - closed-app push disabled (live notifications still work)",
+);
+
 console.log(`building storefront -> mobile/www  (VITE_API_BASE=${apiBase})`);
 const build = spawnSync("npx vite build --mode mobile --outDir mobile/www --emptyOutDir", {
   cwd: ROOT,
   stdio: "inherit",
   shell: true,
-  env: { ...process.env, VITE_API_BASE: apiBase },
+  env: { ...process.env, VITE_API_BASE: apiBase, VITE_PUSH_ENABLED: pushEnabled ? "1" : "" },
 });
 if (build.status !== 0) process.exit(build.status ?? 1);
 

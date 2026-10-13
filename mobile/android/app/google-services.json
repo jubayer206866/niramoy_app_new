@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "442749379248",
+    "project_id": "niramoy-pharmacy-04ikf",
+    "storage_bucket": "niramoy-pharmacy-04ikf.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:442749379248:android:e33f5d358ca13e80979175",
+        "android_client_info": {
+          "package_name": "com.niramoy.pharmacy"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCDjtcgk0dCphj4pp_AgaGUpZP2q1eclMI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -6,7 +6,9 @@ import { taka, useDebounced, useFetch } from "../lib";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { useWishlist } from "../context/WishlistContext";
+import { useNotifications } from "../context/NotificationContext";
 import {
+  Bell,
   Cart,
   ChevronDown,
   Grid,
@@ -23,6 +25,7 @@ import {
   Sparkles,
   Truck,
   User,
+  Wallet,
   X,
 } from "./Icons";
 import { Avatar } from "./ui";
@@ -39,6 +42,7 @@ export function Header({
   const { count } = useCart();
   const { user, logout } = useAuth();
   const wishlist = useWishlist();
+  const { unread } = useNotifications();
   const nav = useNavigate();
   const { pathname } = useLocation();
 
@@ -271,6 +275,21 @@ export function Header({
                 )}
               </Link>
 
+              {user && (
+                <Link
+                  to="/account/notifications"
+                  className="btn-icon relative"
+                  aria-label={`Notifications (${unread} new)`}
+                >
+                  <Bell className="h-5 w-5" />
+                  {unread > 0 && (
+                    <span className="absolute -right-1 -top-1 grid h-5 min-w-5 animate-pop place-items-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
+                      {unread > 9 ? "9+" : unread}
+                    </span>
+                  )}
+                </Link>
+              )}
+
               <Link to="/cart" className="btn-icon relative" aria-label={`Cart (${count})`}>
                 <Cart className="h-5 w-5" />
                 {count > 0 && (
@@ -311,6 +330,8 @@ export function Header({
                         {[
                           { to: "/account", label: "Dashboard", icon: <Grid className="h-4 w-4" /> },
                           { to: "/account/orders", label: "My orders", icon: <Package className="h-4 w-4" /> },
+                          { to: "/account/wallet", label: "Wallet", icon: <Wallet className="h-4 w-4" /> },
+                          { to: "/account/notifications", label: "Notifications", icon: <Bell className="h-4 w-4" /> },
                           { to: "/wishlist", label: "Wishlist", icon: <Heart className="h-4 w-4" /> },
                           { to: "/account/addresses", label: "Addresses", icon: <MapPin className="h-4 w-4" /> },
                           { to: "/account/profile", label: "Profile & security", icon: <Lock className="h-4 w-4" /> },
@@ -470,6 +491,7 @@ export function Header({
                 { to: "/products", label: "All products" },
                 { to: "/wishlist", label: "Wishlist" },
                 { to: "/account/orders", label: "My orders" },
+                { to: "/account/wallet", label: "Wallet" },
                 { to: "/cart", label: "Cart" },
               ].map((l) => (
                 <Link
@@ -553,6 +575,7 @@ export function Footer({
             {[
               { to: "/account", label: "Dashboard" },
               { to: "/account/orders", label: "Order history" },
+              { to: "/account/wallet", label: "Wallet" },
               { to: "/wishlist", label: "Wishlist" },
               { to: "/account/addresses", label: "Saved addresses" },
               { to: "/login", label: "Sign in" },

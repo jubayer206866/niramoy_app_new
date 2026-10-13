@@ -98,6 +98,24 @@ replayed on top after every reload.
   their line items. Guests can order too; signed-in users get order history and re-order.
 * **Reviews** — one review per product per user, merged into the product page.
 
+## Push notifications (Firebase)
+
+Notices, offers, order steps and wallet results are stored in MySQL and delivered three ways: live
+over `/api/events` to open apps, as local notifications while the app is backgrounded, and through
+Firebase Cloud Messaging when the app is closed.
+
+* **Firebase project** — `niramoy-pharmacy-04ikf` ("Niramoy Pharmacy"), Android app
+  `com.niramoy.pharmacy`.
+* **App** — `mobile/android/app/google-services.json` (public client config, tracked). Its presence
+  makes `mobile/build.mjs` set `VITE_PUSH_ENABLED=1` and Gradle apply the google-services plugin.
+  Re-download with `firebase apps:sdkconfig ANDROID <appId> --project niramoy-pharmacy-04ikf`.
+* **Server** — `FIREBASE_SERVICE_ACCOUNT` (path to, or inline, Admin SDK key JSON) and `PUBLIC_URL`
+  (makes notification images absolute). In production the key lives at
+  `/etc/niramoy-web-firebase.json`, referenced from `/etc/niramoy-web.env`. Locally keep it in
+  `secrets/` (git-ignored) — never commit it.
+* **Checks** — `node scripts/_fcm-check.mjs` verifies the key against FCM without sending;
+  `node scripts/_push-test.mjs [tokenPrefix]` lists registered devices or pushes a test to one.
+
 ## Storefront UI
 
 * **Theme** — violet/indigo primary with a golden-amber accent, Sora display + Inter body type,

@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { Avatar } from "../components/ui";
 import { PageLoading } from "../components/Errors";
 import {
+  Bell,
   Chart,
   Folder,
   Gear,
@@ -16,6 +17,7 @@ import {
   Receipt,
   Shield,
   Users,
+  Wallet,
   X,
 } from "../components/Icons";
 import DashboardPage from "./pages/DashboardPage";
@@ -29,6 +31,8 @@ import CategoriesPage from "./pages/CategoriesPage";
 import BannersPage from "./pages/BannersPage";
 import MediaPage from "./pages/MediaPage";
 import SettingsPage from "./pages/SettingsPage";
+import WalletPage from "./pages/WalletPage";
+import NotificationsPage from "./pages/NotificationsPage";
 
 interface NavItem {
   to: string;
@@ -55,8 +59,13 @@ const NAV: { section: string; items: NavItem[] }[] = [
     section: "Commerce",
     items: [
       { to: "/admin/orders", label: "Orders", icon: <Receipt className="h-4 w-4" /> },
+      { to: "/admin/wallet", label: "Wallet", icon: <Wallet className="h-4 w-4" /> },
       { to: "/admin/customers", label: "Customers", icon: <Users className="h-4 w-4" /> },
     ],
+  },
+  {
+    section: "Marketing",
+    items: [{ to: "/admin/notifications", label: "Push notifications", icon: <Bell className="h-4 w-4" /> }],
   },
   {
     section: "Store",
@@ -70,6 +79,8 @@ const TITLES: Record<string, string> = {
   banners: "Banners",
   media: "Media library",
   orders: "Orders",
+  wallet: "Wallet",
+  notifications: "Push notifications",
   customers: "Customers",
   settings: "Settings",
 };
@@ -230,6 +241,8 @@ export default function AdminApp() {
               <Route path="products/:id" element={<ProductEditorPage />} />
               <Route path="orders" element={<OrdersPage />} />
               <Route path="orders/:id" element={<OrderDetailPage />} />
+              <Route path="wallet" element={<WalletPage />} />
+              <Route path="notifications" element={<NotificationsPage />} />
               <Route path="customers" element={<CustomersPage />} />
               <Route path="customers/:id" element={<CustomerDetailPage />} />
               <Route path="categories" element={<CategoriesPage />} />

@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { adminApi } from "../api";
-import { Empty, OrderStatusPill, PageHeader, Panel } from "../components";
+import { Empty, ORDER_STATUSES, OrderStatusPill, PageHeader, Panel } from "../components";
 import { ErrorBox, PageLoading } from "../../components/Errors";
 import { Img } from "../../components/Img";
 import { StatCard } from "../../components/ui";
@@ -156,7 +156,7 @@ export default function DashboardPage() {
           <Panel>
             <h2 className="section-title mb-3">Order status</h2>
             <div className="flex flex-wrap gap-2">
-              {["placed", "confirmed", "shipped", "delivered", "cancelled"].map((s) => (
+              {ORDER_STATUSES.map((s) => (
                 <Link
                   key={s}
                   to={`/admin/orders?status=${s}`}

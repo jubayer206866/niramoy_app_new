@@ -1,6 +1,8 @@
 import { Link } from "react-router-dom";
 import { api, type Order } from "../../api";
 import { useFetch, taka } from "../../lib";
+import { useLiveEvents } from "../../live";
+import { orderStatusLabel, orderStatusTone } from "../../orderStatus";
 import { Img } from "../../components/Img";
 import { useCart } from "../../context/CartContext";
 import { useToast } from "../../context/ToastContext";
@@ -8,24 +10,13 @@ import { EmptyState, SectionHeading } from "../../components/ui";
 import { PageLoading } from "../../components/Errors";
 import { ChevronRight, Package, Truck } from "../../components/Icons";
 
-const STATUS_TONES: Record<string, string> = {
-  placed: "badge-warn",
-  confirmed: "badge bg-sky-50 text-sky-700 ring-1 ring-sky-100",
-  shipped: "badge bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100",
-  delivered: "badge-success",
-  cancelled: "badge-danger",
-};
-
 export function StatusPill({ status }: { status: string }) {
-  return (
-    <span className={`${STATUS_TONES[status] ?? "badge bg-slate-100 text-slate-600"} capitalize`}>
-      {status}
-    </span>
-  );
+  return <span className={orderStatusTone(status)}>{orderStatusLabel(status)}</span>;
 }
 
 export default function AccountOrders() {
-  const { data, loading } = useFetch(() => api.orders(), []);
+  const { data, loading, reload } = useFetch(() => api.orders(), []);
+  useLiveEvents(["order", "ready"], reload);
   const { add } = useCart();
   const { success } = useToast();
 

@@ -99,7 +99,7 @@ export default function LoginPage() {
           <Link to="/products" className="transition hover:text-brand-600">
             Continue as guest →
           </Link>
-          <span>Session stays active for 30 days</span>
+          <span>You stay signed in until you log out</span>
         </div>
       </form>
     </AuthShell>

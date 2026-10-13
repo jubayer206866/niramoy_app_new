@@ -13,6 +13,16 @@ const config: CapacitorConfig = {
     androidScheme: "http",
     cleartext: true,
   },
+  plugins: {
+    LocalNotifications: {
+      smallIcon: "ic_stat_notify",
+      iconColor: "#6A3DF0",
+    },
+    // While the app is open, pushes are shown as an in-app banner instead.
+    PushNotifications: {
+      presentationOptions: [],
+    },
+  },
 };
 
 export default config;

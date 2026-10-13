@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="notification_accent">#6A3DF0</color>
+    <!-- Must match ANDROID_CHANNEL in server/push.mjs and NOTIFICATION_CHANNEL in src/notify.ts -->
+    <string name="default_notification_channel_id">general</string>
+</resources>

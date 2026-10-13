@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /**
  * Origin the API and its images live on.
@@ -31,10 +31,12 @@ export function useFetch<T>(fn: () => Promise<T>, deps: unknown[]) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
+  const quiet = useRef(false);
 
   useEffect(() => {
     let alive = true;
-    setLoading(true);
+    if (!quiet.current) setLoading(true);
+    quiet.current = false;
     setError(null);
     fn()
       .then((d) => {
@@ -52,7 +54,17 @@ export function useFetch<T>(fn: () => Promise<T>, deps: unknown[]) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [...deps, tick]);
 
-  return { data, loading, error, refresh: () => setTick((t) => t + 1) };
+  return {
+    data,
+    loading,
+    error,
+    refresh: () => setTick((t) => t + 1),
+    /** Refetch in the background, keeping the current data on screen. */
+    reload: () => {
+      quiet.current = true;
+      setTick((t) => t + 1);
+    },
+  };
 }
 
 /** Format a number as Bangladeshi Taka. */

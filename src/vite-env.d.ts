@@ -7,6 +7,8 @@ interface ImportMetaEnv {
    * talks to the same origin it was served from.
    */
   readonly VITE_API_BASE?: string;
+  /** "1" when the packaged app was built with Firebase (google-services.json). */
+  readonly VITE_PUSH_ENABLED?: string;
 }
 
 interface ImportMeta {

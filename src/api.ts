@@ -98,6 +98,37 @@ export interface AccountSummary {
   addresses: number;
   reviews: number;
   saved: number;
+  wallet: number;
+}
+
+/** `payment` = order paid at checkout (account holds the order id); `refund` = that order cancelled. */
+export type WalletTxnType = "deposit" | "withdrawal" | "payment" | "refund";
+export type WalletTxnStatus = "completed" | "pending" | "rejected" | "cancelled";
+
+export interface WalletTxn {
+  id: number;
+  type: WalletTxnType;
+  method: string;
+  account: string;
+  amount: number;
+  status: WalletTxnStatus;
+  reference: string;
+  note: string;
+  createdAt: string;
+  processedAt: string | null;
+}
+
+export interface Wallet {
+  balance: number;
+  held: number;
+  limits: { depositMin: number; depositMax: number; withdrawMin: number; withdrawMax: number };
+  transactions: WalletTxn[];
+}
+
+export interface WalletRequest {
+  amount: number;
+  method: string;
+  account: string;
 }
 
 export interface Me {
@@ -106,6 +137,26 @@ export interface Me {
   defaultAddress: Address | null;
   wishlistCount: number;
   orderCount: number;
+  unreadNotifications?: number;
+}
+
+export type NotificationKind = "notice" | "offer" | "order" | "wallet";
+
+export interface AppNotification {
+  id: number;
+  kind: NotificationKind;
+  title: string;
+  body: string;
+  link: string;
+  image: string;
+  createdAt: string;
+  read: boolean;
+}
+
+export interface OrderEvent {
+  status: string;
+  note: string;
+  at: string;
 }
 
 export interface OrderLine {
@@ -137,6 +188,9 @@ export interface Order {
   status: string;
   placedAt: string;
   items?: OrderLine[];
+  events?: OrderEvent[];
+  /** Wallet-paid order whose payment went back to the wallet on cancellation. */
+  walletRefunded?: boolean;
 }
 
 export interface Review {
@@ -194,14 +248,19 @@ function saveToken(token?: string | null) {
   }
 }
 
+/** Session header for the packaged app; empty on the web, which uses the cookie. */
+export function sessionHeaders(): Record<string, string> {
+  const token = readToken();
+  return API_BASE && token ? { "X-Session-Token": token } : {};
+}
+
 /** Exported for the admin API client (src/admin/api.ts). */
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = readToken();
   const headers: Record<string, string> = {
     ...(init?.body ? { "Content-Type": "application/json" } : {}),
     ...((init?.headers as Record<string, string> | undefined) || {}),
+    ...sessionHeaders(),
   };
-  if (API_BASE && token) headers["X-Session-Token"] = token;
 
   const res = await fetch(apiUrl(path), {
     credentials: "same-origin",
@@ -313,6 +372,21 @@ export const api = {
   deleteAddress: (id: number) =>
     request<{ addresses: Address[] }>(`/api/account/addresses/${id}`, { method: "DELETE" }),
 
+  // wallet
+  wallet: () => get<Wallet>("/api/account/wallet"),
+  walletDeposit: (payload: WalletRequest) =>
+    request<Wallet>("/api/account/wallet/deposit", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  walletWithdraw: (payload: WalletRequest) =>
+    request<Wallet>("/api/account/wallet/withdraw", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  walletCancelWithdrawal: (id: number) =>
+    request<Wallet>(`/api/account/wallet/withdrawals/${id}/cancel`, { method: "POST" }),
+
   // wishlist
   wishlist: () => get<{ ids: number[]; products: Product[] }>("/api/account/wishlist"),
   wishlistIds: () => get<{ ids: number[] }>("/api/account/wishlist/ids"),
@@ -342,6 +416,18 @@ export const api = {
     }),
   orders: () => get<{ orders: Order[] }>("/api/account/orders"),
   order: (id: string) => get<{ order: Order }>(`/api/account/orders/${encodeURIComponent(id)}`),
+
+  // notifications
+  notifications: () =>
+    get<{ notifications: AppNotification[]; unread: number }>("/api/account/notifications"),
+  unreadNotifications: () => get<{ unread: number }>("/api/account/notifications/unread"),
+  markNotificationsSeen: () =>
+    request<{ unread: number }>("/api/account/notifications/seen", { method: "POST" }),
+  registerPush: (token: string, platform: string) =>
+    request<{ ok: true }>("/api/push/register", {
+      method: "POST",
+      body: JSON.stringify({ token, platform }),
+    }),
 
   // reviews
   reviews: (productId: number | string) => get<ReviewsResponse>(`/api/reviews/${productId}`),

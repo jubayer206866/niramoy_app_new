@@ -5,6 +5,10 @@ import db, { ensureSchema } from "./db.mjs";
 import { ah, attachUser } from "./auth.mjs";
 import { createAccountRouter } from "./account-routes.mjs";
 import { createAdminRouter } from "./admin-routes.mjs";
+import { createWalletRouter } from "./wallet.mjs";
+import { createLiveRouter } from "./live.mjs";
+import { createNotificationRouter } from "./notifications.mjs";
+import { pushConfigured } from "./push.mjs";
 import { syncOverrides, ensureAdminAccount } from "./admin-overrides.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -250,6 +254,9 @@ async function productsByIds(ids) {
 
 app.use(attachUser);
 app.use(createAccountRouter({ productsByIds }));
+app.use(createWalletRouter());
+app.use(createLiveRouter());
+app.use(createNotificationRouter());
 app.use("/api/admin", createAdminRouter());
 
 app.use("/img", express.static(path.join(ROOT, "public", "img"), { maxAge: "7d", immutable: true }));
@@ -269,5 +276,6 @@ app.use((err, req, res, _next) => {
 
 app.listen(PORT, () => {
   console.log(`Niramoy Pharmacy API listening on http://localhost:${PORT}`);
+  console.log(`Push: ${pushConfigured() ? "Firebase Cloud Messaging enabled" : "FCM off (no FIREBASE_SERVICE_ACCOUNT) - live delivery only"}`);
   console.log(`DB: mysql://${process.env.MYSQL_HOST || "127.0.0.1"}/${process.env.MYSQL_DATABASE || "niramoy_web"}`);
 });

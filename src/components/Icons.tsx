@@ -283,3 +283,56 @@ export const Copy = (p: IconProps) => (
     <path d="M15 6.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h.5" />
   </Svg>
 );
+
+export const Wallet = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M19 7V5.5A1.5 1.5 0 0 0 17.5 4h-12A2.5 2.5 0 0 0 3 6.5v11A2.5 2.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15" />
+    <path d="M3 6.5A2.5 2.5 0 0 0 5.5 9h13A1.5 1.5 0 0 1 20 10.5V11" />
+    <path d="M21 11h-4a2 2 0 0 0 0 4h4Z" />
+  </Svg>
+);
+
+export const ArrowDown = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 4v16M5.5 13.5 12 20l6.5-6.5" />
+  </Svg>
+);
+
+export const ArrowUp = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 20V4M5.5 10.5 12 4l6.5 6.5" />
+  </Svg>
+);
+
+export const Bank = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M3 9.5 12 4l9 5.5M4.5 10v7.5M9.5 10v7.5M14.5 10v7.5M19.5 10v7.5M3 20h18" />
+  </Svg>
+);
+
+export const Bell = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M6 9a6 6 0 1 1 12 0c0 4.5 1.8 6.6 2.6 7.4a.6.6 0 0 1-.4 1H3.8a.6.6 0 0 1-.4-1C4.2 15.6 6 13.5 6 9Z" />
+    <path d="M10 20.5a2.2 2.2 0 0 0 4 0" />
+  </Svg>
+);
+
+export const Megaphone = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M3.5 10v4a1 1 0 0 0 1 1H7l7.5 4.5V4.5L7 9H4.5a1 1 0 0 0-1 1Z" />
+    <path d="M7 15l1.3 5h2.2L9.6 15.9M18 9.5a3.5 3.5 0 0 1 0 5" />
+  </Svg>
+);
+
+export const Tag = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M3.5 12.6V4.5a1 1 0 0 1 1-1h8.1a1 1 0 0 1 .7.3l7.4 7.4a1 1 0 0 1 0 1.4l-8.1 8.1a1 1 0 0 1-1.4 0l-7.4-7.4a1 1 0 0 1-.3-.7Z" />
+    <circle cx="8.5" cy="8.5" r="1.5" />
+  </Svg>
+);
+
+export const Send = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M21 3 10.5 13.5M21 3l-6.5 18-4-7.5L3 9.5 21 3Z" />
+  </Svg>
+);

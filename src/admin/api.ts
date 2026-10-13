@@ -1,5 +1,5 @@
 /** Admin CMS API client - all /api/admin/* endpoints. */
-import { qs, request, type Banner, type Order, type Product } from "../api";
+import { qs, request, type Banner, type Order, type Product, type WalletTxn } from "../api";
 
 const get = <T,>(url: string) => request<T>(url);
 const send = <T,>(method: string, path: string, payload?: unknown) =>
@@ -70,6 +70,57 @@ export interface AdminCustomer {
   createdAt: string;
   orders: number;
   spend: number;
+}
+
+export interface AdminWalletTxn extends WalletTxn {
+  userId: number;
+  userName: string;
+  userEmail: string;
+  userPhone: string;
+}
+
+export interface AdminWalletResponse {
+  total: number;
+  page: number;
+  limit: number;
+  transactions: AdminWalletTxn[];
+  summary: {
+    outstanding: number;
+    pendingAmount: number;
+    pendingCount: number;
+    deposited: number;
+    paidOut: number;
+    spent: number;
+  };
+}
+
+export interface BroadcastPayload {
+  kind: "notice" | "offer";
+  title: string;
+  body: string;
+  link: string;
+  image: string;
+}
+
+export interface AdminNotification extends BroadcastPayload {
+  id: number;
+  createdAt: string;
+  pushSent?: number;
+  createdByName?: string | null;
+}
+
+export interface AdminNotificationsResponse {
+  total: number;
+  page: number;
+  limit: number;
+  notifications: AdminNotification[];
+  stats: {
+    pushConfigured: boolean;
+    devices: number;
+    signedInDevices: number;
+    liveNow: number;
+    customers: number;
+  };
 }
 
 export interface MediaFile {
@@ -150,8 +201,17 @@ export const adminApi = {
       customer: AdminCustomer | null;
       customerOrders: { id: string; status: string; total: number; placedAt: string }[];
     }>(`/api/admin/orders/${encodeURIComponent(id)}`),
-  updateOrderStatus: (id: string, status: string) =>
-    send<{ order: Order }>("PATCH", `/api/admin/orders/${encodeURIComponent(id)}`, { status }),
+  updateOrderStatus: (id: string, status: string, note = "") =>
+    send<{ order: Order; refunded: number }>("PATCH", `/api/admin/orders/${encodeURIComponent(id)}`, {
+      status,
+      note,
+    }),
+
+  notifications: (query: Record<string, unknown>) =>
+    get<AdminNotificationsResponse>(`/api/admin/notifications${qs(query)}`),
+  sendNotification: (payload: BroadcastPayload) =>
+    send<{ notification: AdminNotification }>("POST", "/api/admin/notifications", payload),
+  deleteNotification: (id: number) => send<{ ok: true }>("DELETE", `/api/admin/notifications/${id}`),
 
   customers: (query: Record<string, unknown>) =>
     get<{ total: number; page: number; limit: number; customers: AdminCustomer[] }>(
@@ -181,9 +241,15 @@ export const adminApi = {
         placedAt: string;
       }[];
       reviews: { productId: number; rating: number; body: string; createdAt: string }[];
+      wallet: { balance: number; held: number };
     }>(`/api/admin/customers/${id}`),
   updateCustomerRole: (id: number | string, role: "admin" | "customer") =>
     send<{ customer: AdminCustomer }>("PATCH", `/api/admin/customers/${id}`, { role }),
+
+  wallet: (query: Record<string, unknown>) =>
+    get<AdminWalletResponse>(`/api/admin/wallet${qs(query)}`),
+  processWithdrawal: (id: number, status: "completed" | "rejected", note: string) =>
+    send<{ transaction: WalletTxn }>("PATCH", `/api/admin/wallet/${id}`, { status, note }),
 
   media: (query: Record<string, unknown>) =>
     get<{ dir: string; files: MediaFile[]; writable: boolean }>(`/api/admin/media${qs(query)}`),

@@ -1,7 +1,16 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { adminApi } from "../api";
-import { OrderStatusPill, ORDER_STATUSES, PageHeader, Panel, RowsSkeleton, Select } from "../components";
+import {
+  OrderStatusPill,
+  ORDER_STATUSES,
+  orderStatusLabel,
+  PageHeader,
+  Panel,
+  RowsSkeleton,
+  Select,
+} from "../components";
+import { ORDER_STEPS } from "../../orderStatus";
 import { ErrorBox } from "../../components/Errors";
 import { Img } from "../../components/Img";
 import { Avatar } from "../../components/ui";
@@ -14,6 +23,7 @@ export default function OrderDetailPage() {
   const toast = useToast();
   const { data, loading, error, refresh } = useFetch(() => adminApi.order(id), [id]);
   const [nextStatus, setNextStatus] = useState("");
+  const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
 
   if (loading) return <RowsSkeleton rows={5} />;
@@ -22,14 +32,23 @@ export default function OrderDetailPage() {
 
   const order = data.order;
   const customer = data.customer;
+  const stepIndex = ORDER_STEPS.indexOf(order.status as (typeof ORDER_STEPS)[number]);
+  const nextStep = stepIndex >= 0 && stepIndex < ORDER_STEPS.length - 1 ? ORDER_STEPS[stepIndex + 1] : null;
 
   const applyStatus = async (status: string) => {
     if (!status || status === order.status) return;
     setBusy(true);
     try {
-      await adminApi.updateOrderStatus(order.id, status);
-      toast.success(`Order marked as ${status}`);
+      const res = await adminApi.updateOrderStatus(order.id, status, note.trim());
+      toast.success(
+        res.refunded
+          ? `Cancelled - ${taka(res.refunded)} refunded to the customer's wallet`
+          : order.userId
+            ? `Marked "${orderStatusLabel(status)}" - customer notified`
+            : `Marked "${orderStatusLabel(status)}" (guest order, no app notification)`,
+      );
       setNextStatus("");
+      setNote("");
       refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not update the order.");
@@ -45,20 +64,34 @@ export default function OrderDetailPage() {
           ← Back to orders
         </Link>
         <div className="flex flex-wrap items-center gap-2">
+          {nextStep && !nextStatus && (
+            <button className="btn-primary" disabled={busy} onClick={() => void applyStatus(nextStep)}>
+              <Truck className="h-4 w-4" /> Mark {orderStatusLabel(nextStep).toLowerCase()}
+            </button>
+          )}
           <Select
             value={nextStatus || order.status}
-            onChange={setNextStatus}
-            options={ORDER_STATUSES.map((s) => ({ value: s, label: s[0].toUpperCase() + s.slice(1) }))}
+            onChange={(v) => setNextStatus(v === order.status ? "" : v)}
+            options={ORDER_STATUSES.map((s) => ({ value: s, label: orderStatusLabel(s) }))}
           />
-          <button
-            className="btn-primary"
-            disabled={busy || !nextStatus}
-            onClick={() => void applyStatus(nextStatus)}
-          >
-            <Check className="h-4 w-4" /> {busy ? "Updating…" : "Update status"}
-          </button>
+          {nextStatus && (
+            <button className="btn-primary" disabled={busy} onClick={() => void applyStatus(nextStatus)}>
+              <Check className="h-4 w-4" /> {busy ? "Updating…" : "Update status"}
+            </button>
+          )}
         </div>
       </div>
+      <input
+        className="input mb-4"
+        maxLength={300}
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        placeholder={
+          (nextStatus || nextStep) === "cancelled"
+            ? "Reason for cancelling (sent to the customer)"
+            : "Optional note for the customer with this update, e.g. rider name and phone"
+        }
+      />
 
       <PageHeader
         title={order.id}
@@ -156,9 +189,18 @@ export default function OrderDetailPage() {
                   ? "Cash on delivery"
                   : order.paymentMethod === "bkash"
                     ? "bKash"
-                    : order.paymentMethod}
+                    : order.paymentMethod === "wallet"
+                      ? "Customer wallet (prepaid)"
+                      : order.paymentMethod}
               </span>
             </p>
+            {order.paymentMethod === "wallet" && (
+              <p className="mt-1 text-xs text-slate-500">
+                {order.walletRefunded
+                  ? "Refunded to the customer's wallet when the order was cancelled."
+                  : "Already paid - do not collect cash. Cancelling refunds it to the wallet automatically."}
+              </p>
+            )}
           </Panel>
 
           <Panel>
@@ -230,8 +272,31 @@ export default function OrderDetailPage() {
             </Panel>
           )}
 
+          <Panel>
+            <h2 className="section-title mb-3">Status history</h2>
+            <ol className="space-y-3">
+              {[...(order.events?.length ? order.events : [{ status: "placed", note: "", at: order.placedAt }])]
+                .reverse()
+                .map((e, i) => (
+                  <li key={`${e.status}-${e.at}`} className="flex gap-3">
+                    <span
+                      className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${i === 0 ? "bg-brand-600" : "bg-slate-300"}`}
+                    />
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold">{orderStatusLabel(e.status)}</p>
+                      <p className="text-xs text-slate-400">{new Date(e.at).toLocaleString("en-GB")}</p>
+                      {e.note && <p className="mt-0.5 text-xs text-slate-600">{e.note}</p>}
+                    </div>
+                  </li>
+                ))}
+            </ol>
+          </Panel>
+
           <p className="flex items-center gap-1.5 px-1 text-xs text-slate-400">
-            <Clock className="h-3.5 w-3.5" /> Status changes are visible to the customer instantly.
+            <Clock className="h-3.5 w-3.5" />
+            {order.userId
+              ? "Every status change is pushed to the customer's app instantly."
+              : "Guest checkout: the customer sees updates only on the order page."}
           </p>
         </div>
       </div>

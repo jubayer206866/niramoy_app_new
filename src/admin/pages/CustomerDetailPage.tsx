@@ -61,7 +61,14 @@ export default function CustomerDetailPage() {
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Link to={`/admin/wallet?view=all&q=${encodeURIComponent(c.email)}`} className="stats-card no-underline">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Wallet balance</p>
+          <p className="mt-1 font-display text-2xl font-extrabold">{taka(data.wallet?.balance ?? 0)}</p>
+          {(data.wallet?.held ?? 0) > 0 && (
+            <p className="text-xs text-amber-600">{taka(data.wallet.held)} pending withdrawal</p>
+          )}
+        </Link>
         <div className="stats-card">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Orders</p>
           <p className="mt-1 font-display text-2xl font-extrabold">{c.orders}</p>

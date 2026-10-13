@@ -2,7 +2,9 @@ import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import { Avatar } from "../../components/ui";
+import { useNotifications } from "../../context/NotificationContext";
 import {
+  Bell,
   Grid,
   Heart,
   Lock,
@@ -10,11 +12,14 @@ import {
   MapPin,
   Package,
   Shield,
+  Wallet,
 } from "../../components/Icons";
 
 const NAV = [
   { to: "/account", label: "Dashboard", icon: <Grid className="h-4 w-4" />, end: true },
   { to: "/account/orders", label: "My orders", icon: <Package className="h-4 w-4" /> },
+  { to: "/account/wallet", label: "Wallet", icon: <Wallet className="h-4 w-4" /> },
+  { to: "/account/notifications", label: "Notifications", icon: <Bell className="h-4 w-4" /> },
   { to: "/wishlist", label: "Wishlist", icon: <Heart className="h-4 w-4" /> },
   { to: "/account/addresses", label: "Addresses", icon: <MapPin className="h-4 w-4" /> },
   { to: "/account/profile", label: "Profile & security", icon: <Lock className="h-4 w-4" /> },
@@ -24,6 +29,13 @@ export default function AccountPage() {
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const nav = useNavigate();
+  const { unread } = useNotifications();
+  const badge = (to: string) =>
+    to === "/account/notifications" && unread > 0 ? (
+      <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-coral-500 px-1 text-[10px] font-bold text-white">
+        {unread > 9 ? "9+" : unread}
+      </span>
+    ) : null;
 
   return (
     <div className="grid gap-5 lg:grid-cols-[260px_1fr]">
@@ -58,6 +70,7 @@ export default function AccountPage() {
               >
                 {item.icon}
                 {item.label}
+                {badge(item.to)}
               </NavLink>
             ))}
             <button
@@ -90,6 +103,7 @@ export default function AccountPage() {
             >
               {item.icon}
               {item.label}
+              {badge(item.to)}
             </NavLink>
           ))}
         </div>

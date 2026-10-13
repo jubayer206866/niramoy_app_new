@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { api } from "../../api";
 import { useFetch, taka } from "../../lib";
+import { useLiveEvents } from "../../live";
 import { Img } from "../../components/Img";
 import { useAuth } from "../../context/AuthContext";
 import { Avatar, EmptyState, SectionHeading, StatCard } from "../../components/ui";
@@ -13,12 +14,17 @@ import {
   Sparkles,
   Star,
   Truck,
+  Wallet,
 } from "../../components/Icons";
 
 export default function AccountOverview() {
   const { user, defaultAddress, wishlistCount } = useAuth();
-  const { data: summary, loading } = useFetch(() => api.overview(), []);
-  const { data: orders } = useFetch(() => api.orders(), []);
+  const { data: summary, loading, reload: reloadSummary } = useFetch(() => api.overview(), []);
+  const { data: orders, reload: reloadOrders } = useFetch(() => api.orders(), []);
+  useLiveEvents(["wallet", "order", "ready"], () => {
+    reloadSummary();
+    reloadOrders();
+  });
   const { data: wish } = useFetch(() => api.wishlist(), []);
 
   const recent = (orders?.orders ?? []).slice(0, 3);
@@ -39,9 +45,14 @@ export default function AccountOverview() {
               {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : "today"}
             </p>
           </div>
-          <Link to="/products" className="btn ml-auto bg-white/15 text-white hover:bg-white/25">
-            <Sparkles className="h-4 w-4" /> New order
-          </Link>
+          <div className="ml-auto flex flex-wrap gap-2">
+            <Link to="/account/wallet" className="btn bg-white text-brand-700 hover:bg-white/90">
+              <Wallet className="h-4 w-4" /> Wallet {summary ? taka(summary.wallet ?? 0) : ""}
+            </Link>
+            <Link to="/products" className="btn bg-white/15 text-white hover:bg-white/25">
+              <Sparkles className="h-4 w-4" /> New order
+            </Link>
+          </div>
         </div>
       </section>
 

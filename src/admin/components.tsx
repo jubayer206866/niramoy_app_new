@@ -11,6 +11,7 @@ import {
   X,
 } from "../components/Icons";
 import { imgUrl, useDebounced } from "../lib";
+import { orderStatusLabel, orderStatusTone } from "../orderStatus";
 import { adminApi, type MediaFile } from "./api";
 
 /* ------------------------------------------------------------------ layout */
@@ -222,23 +223,11 @@ export function CheckPill({
 }
 
 /* -------------------------------------------------------------- order pill */
-const STATUS_TONES: Record<string, string> = {
-  placed: "badge-warn",
-  confirmed: "badge bg-sky-50 text-sky-700 ring-1 ring-sky-100",
-  shipped: "badge bg-indigo-50 text-indigo-700 ring-1 ring-indigo-100",
-  delivered: "badge-success",
-  cancelled: "badge-danger",
-};
-
 export function OrderStatusPill({ status }: { status: string }) {
-  return (
-    <span className={`${STATUS_TONES[status] ?? "badge bg-slate-100 text-slate-600"} capitalize`}>
-      {status}
-    </span>
-  );
+  return <span className={`${orderStatusTone(status)} whitespace-nowrap`}>{orderStatusLabel(status)}</span>;
 }
 
-export const ORDER_STATUSES = ["placed", "confirmed", "shipped", "delivered", "cancelled"] as const;
+export { ORDER_STATUSES, orderStatusLabel } from "../orderStatus";
 
 /* ------------------------------------------------------------------ modal */
 export function Modal({

@@ -9,6 +9,11 @@ Thumbs.db
 .env.*
 !.env.example
 
+# Firebase Admin SDK private key (server push); google-services.json is public and stays tracked
+secrets/
+*firebase-adminsdk*.json
+*service-account*.json
+
 # SQLite catalogue/users databases (data now lives in MySQL; arogga.db is >100MB)
 data/
 

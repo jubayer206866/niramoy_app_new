@@ -1,7 +1,16 @@
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { adminApi } from "../api";
-import { OrderStatusPill, PageHeader, RowsSkeleton, SearchInput, Tabs, Toolbar } from "../components";
+import {
+  ORDER_STATUSES,
+  OrderStatusPill,
+  orderStatusLabel,
+  PageHeader,
+  RowsSkeleton,
+  SearchInput,
+  Tabs,
+  Toolbar,
+} from "../components";
 import { EmptyBox, ErrorBox } from "../../components/Errors";
 import { ChevronRight, Receipt } from "../../components/Icons";
 import { taka, useDebounced, useFetch } from "../../lib";
@@ -48,11 +57,7 @@ export default function OrdersPage() {
         onChange={(v) => update({ status: v === "all" ? null : v })}
         tabs={[
           { key: "all", label: "All", count: count("all") },
-          { key: "placed", label: "Placed", count: count("placed") },
-          { key: "confirmed", label: "Confirmed", count: count("confirmed") },
-          { key: "shipped", label: "Shipped", count: count("shipped") },
-          { key: "delivered", label: "Delivered", count: count("delivered") },
-          { key: "cancelled", label: "Cancelled", count: count("cancelled") },
+          ...ORDER_STATUSES.map((s) => ({ key: s, label: orderStatusLabel(s), count: count(s) })),
         ]}
       />
 

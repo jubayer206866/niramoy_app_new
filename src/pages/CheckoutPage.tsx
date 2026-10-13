@@ -4,10 +4,11 @@ import { api, ApiError, type Address, type Order } from "../api";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
-import { taka } from "../lib";
+import { taka, useFetch } from "../lib";
+import { useLiveEvents } from "../live";
 import { Alert, Field } from "../components/ui";
 import { Img } from "../components/Img";
-import { Check, Lock, MapPin, Package, Shield } from "../components/Icons";
+import { Check, Lock, MapPin, Package, Shield, Wallet as WalletIcon } from "../components/Icons";
 import {
   AmexLogo,
   BkashLogo,
@@ -71,6 +72,15 @@ export default function CheckoutPage() {
   const [error, setError] = useState("");
   const [placed, setPlaced] = useState<Order | null>(null);
 
+  const { data: wallet, reload: reloadWallet } = useFetch(
+    () => (user ? api.wallet() : Promise.resolve(null)),
+    [user?.id],
+  );
+  useLiveEvents(["wallet"], reloadWallet);
+  const balance = wallet?.balance ?? 0;
+  const walletCovers = !!wallet && balance >= total;
+  const shortfall = Math.max(Math.ceil(total - balance), 0);
+
   const selectedAddress = useMemo(
     () => (addressId === "new" ? null : addresses.find((a) => a.id === addressId) || null),
     [addressId, addresses],
@@ -102,11 +112,16 @@ export default function CheckoutPage() {
               <div className="rounded-2xl border border-slate-100 p-3">
                 <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Payment</p>
                 <p className="mt-1 text-sm font-semibold capitalize">
-                  {PAYMENTS.find((p) => p.id === placed.paymentMethod)?.label ?? placed.paymentMethod}
+                  {placed.paymentMethod === "wallet"
+                    ? "Niramoy Wallet · paid"
+                    : PAYMENTS.find((p) => p.id === placed.paymentMethod)?.label ?? placed.paymentMethod}
                 </p>
                 <p className="text-sm text-slate-500">
                   {placed.itemsCount} items · {taka(placed.total)}
                 </p>
+                {placed.paymentMethod === "wallet" && wallet && (
+                  <p className="text-xs text-slate-500">Wallet balance now {taka(wallet.balance)}</p>
+                )}
               </div>
             </div>
 
@@ -164,6 +179,10 @@ export default function CheckoutPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (payment === "wallet" && !walletCovers) {
+      setError(`Your wallet balance is ${taka(balance)}. Add ${taka(shortfall)} or choose another payment method.`);
+      return;
+    }
     setBusy(true);
     setError("");
     const payload = {
@@ -181,13 +200,19 @@ export default function CheckoutPage() {
       const { order } = await api.placeOrder(payload);
       clear();
       setPlaced(order);
-      success(`Order ${order.id} placed successfully`);
+      success(
+        order.paymentMethod === "wallet"
+          ? `Paid ${taka(order.total)} from your wallet - order ${order.id} placed`
+          : `Order ${order.id} placed successfully`,
+      );
       if (user) void refresh();
+      reloadWallet();
     } catch (err) {
       const message =
         err instanceof ApiError ? err.message : "Could not place your order. Please try again.";
       setError(message);
       toastError(message);
+      if (payment === "wallet") reloadWallet();
     } finally {
       setBusy(false);
     }
@@ -332,6 +357,59 @@ export default function CheckoutPage() {
             <h2 className="mb-3 flex items-center gap-2 font-display text-base font-bold">
               <Lock className="h-4 w-4 text-brand-500" /> Payment method
             </h2>
+
+            <div
+              className={`mb-2 flex flex-wrap items-center gap-3 rounded-2xl border p-3 transition ${
+                payment === "wallet"
+                  ? "border-brand-500 bg-brand-50/60 shadow-soft"
+                  : "border-slate-200"
+              }`}
+            >
+              <button
+                type="button"
+                disabled={!walletCovers}
+                onClick={() => setPayment("wallet")}
+                aria-pressed={payment === "wallet"}
+                className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:cursor-not-allowed"
+              >
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-gradient text-white">
+                  <WalletIcon className="h-5 w-5" />
+                </span>
+                <span className="min-w-0">
+                  <span className="flex items-center gap-2 text-sm font-bold">
+                    Niramoy Wallet
+                    {wallet && (
+                      <span className={walletCovers ? "badge-success" : "badge bg-slate-100 text-slate-600"}>
+                        {taka(balance)}
+                      </span>
+                    )}
+                  </span>
+                  <span className="block text-[11px] text-slate-500">
+                    {!user
+                      ? "Sign in to pay with your wallet balance"
+                      : !wallet
+                        ? "Checking your balance…"
+                        : walletCovers
+                          ? `Pay instantly · ${taka(balance - total)} left after this order`
+                          : `Not enough balance · add ${taka(shortfall)} to pay with your wallet`}
+                  </span>
+                </span>
+              </button>
+              {payment === "wallet" && walletCovers ? (
+                <span className="grid h-5 w-5 place-items-center rounded-full bg-brand-600 text-white">
+                  <Check className="h-3 w-3" />
+                </span>
+              ) : !user ? (
+                <Link to="/login?next=/checkout" className="btn-outline btn-sm">
+                  Sign in
+                </Link>
+              ) : wallet && !walletCovers ? (
+                <Link to={`/account/wallet?add=${shortfall}&next=/checkout`} className="btn-outline btn-sm">
+                  Add money
+                </Link>
+              ) : null}
+            </div>
+
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {PAYMENTS.map((p) => (
                 <button
@@ -423,7 +501,11 @@ export default function CheckoutPage() {
             )}
 
             <button className="btn-coral mt-4 w-full" disabled={busy}>
-              {busy ? "Placing order…" : `Place order · ${taka(total)}`}
+              {busy
+                ? "Placing order…"
+                : payment === "wallet"
+                  ? `Pay ${taka(total)} from wallet`
+                  : `Place order · ${taka(total)}`}
             </button>
 
             <div className="mt-4 border-t border-slate-100 pt-3">
