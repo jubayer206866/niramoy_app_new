@@ -10,6 +10,7 @@
  *    skipped so nothing is shown twice.
  */
 import { api, type AppNotification } from "./api";
+import { offerTheme } from "./offerThemes";
 
 type CapacitorGlobal = { isNativePlatform?: () => boolean; getPlatform?: () => string };
 const capacitor = () => (window as { Capacitor?: CapacitorGlobal }).Capacitor;
@@ -22,22 +23,38 @@ export const NOTIFICATION_CHANNEL = "general";
 let localGranted = false;
 let pushToken: string | null = null;
 let started: Promise<void> | null = null;
-let tapHandler: ((link: string) => void) | null = null;
-let pendingLink: string | null = null;
-
-function handleTap(link: unknown) {
-  const target = typeof link === "string" && link ? link : "/account/notifications";
-  if (tapHandler) tapHandler(target);
-  else pendingLink = target;
+/** What a tapped system notification carries (FCM data or local `extra`; values arrive as strings). */
+export interface NotificationTap {
+  id: number;
+  kind: string;
+  link: string;
+  /** An offer that should open as the in-app pop-up rather than navigate straight away. */
+  popup: boolean;
 }
 
-/** Where to go when a notification is tapped. A tap that launched the app is replayed here. */
-export function onNotificationTap(handler: (link: string) => void) {
+type TapData = Record<string, unknown> | undefined;
+
+let tapHandler: ((tap: NotificationTap) => void) | null = null;
+let pendingTap: NotificationTap | null = null;
+
+function handleTap(data: TapData) {
+  const tap: NotificationTap = {
+    id: Number(data?.id) || 0,
+    kind: String(data?.kind ?? ""),
+    link: typeof data?.link === "string" && data.link ? data.link : "/account/notifications",
+    popup: data?.popup === "1" || data?.popup === true,
+  };
+  if (tapHandler) tapHandler(tap);
+  else pendingTap = tap;
+}
+
+/** What to do when a notification is tapped. A tap that launched the app is replayed here. */
+export function onNotificationTap(handler: (tap: NotificationTap) => void) {
   tapHandler = handler;
-  if (pendingLink) {
-    const link = pendingLink;
-    pendingLink = null;
-    handler(link);
+  if (pendingTap) {
+    const tap = pendingTap;
+    pendingTap = null;
+    handler(tap);
   }
   return () => {
     if (tapHandler === handler) tapHandler = null;
@@ -62,7 +79,7 @@ async function startLocal() {
   }
   localGranted = perm.display === "granted";
   await LocalNotifications.addListener("localNotificationActionPerformed", (e) =>
-    handleTap(e.notification.extra?.link),
+    handleTap(e.notification.extra as TapData),
   );
 }
 
@@ -91,7 +108,7 @@ async function startPush() {
     retryTimer = setTimeout(register, delay);
   });
   await PushNotifications.addListener("pushNotificationActionPerformed", (a) =>
-    handleTap(a.notification.data?.link),
+    handleTap(a.notification.data as TapData),
   );
   let perm = await PushNotifications.checkPermissions();
   if (perm.receive !== "granted" && perm.receive !== "denied") {
@@ -130,18 +147,24 @@ export async function showDeviceNotification(n: AppNotification) {
   await initDeviceNotifications();
   if (!localGranted) return;
   const { LocalNotifications } = await import("@capacitor/local-notifications");
+  const extras = [
+    n.coupon && `Use code ${n.coupon}`,
+    n.expiresAt &&
+      `Ends ${new Date(n.expiresAt).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}`,
+  ].filter(Boolean);
   await LocalNotifications.schedule({
     notifications: [
       {
         id: n.id,
-        title: n.title,
+        title: n.badge ? `${n.title} · ${n.badge}` : n.title,
         body: n.body,
-        largeBody: n.body,
+        largeBody: extras.length ? `${n.body}\n${extras.join(" · ")}` : n.body,
+        summaryText: n.kind === "offer" ? "Special offer" : undefined,
         channelId: NOTIFICATION_CHANNEL,
         smallIcon: "ic_stat_notify",
-        iconColor: "#6A3DF0",
+        iconColor: offerTheme(n.theme).accent,
         autoCancel: true,
-        extra: { link: n.link },
+        extra: { id: String(n.id), kind: n.kind, link: n.link, popup: n.popup ? "1" : "0" },
       },
     ],
   });

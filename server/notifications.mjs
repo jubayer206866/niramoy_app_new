@@ -10,7 +10,7 @@ import express from "express";
 import db, { now } from "./db.mjs";
 import { ah, requireUser } from "./auth.mjs";
 import { liveConnectionCount, publish, publishAll } from "./live.mjs";
-import { pushConfigured, pushToTokens } from "./push.mjs";
+import { THEME_ACCENTS, pushConfigured, pushToTokens } from "./push.mjs";
 
 export const ORDER_STATUSES = [
   "placed",
@@ -24,12 +24,17 @@ export const ORDER_STATUSES = [
 
 /** Broadcasts older than this are not shown to customers who signed up later. */
 const BROADCAST_BACKFILL_MS = 30 * 864e5;
+/** An offer pops up on app launch for this long after it was sent (unless it expires first). */
+const FEATURED_MAX_AGE_MS = 14 * 864e5;
 
 const str = (v, max = 500) => String(v ?? "").trim().slice(0, max);
 const taka = (n) => `৳${Math.round(Number(n) || 0).toLocaleString("en-US")}`;
 
-const N_SELECT = `SELECT n.id, n.kind, n.title, n.body, n.link, n.image, n.created_at AS createdAt
-  FROM notifications n`;
+const N_FIELDS = `n.id, n.kind, n.title, n.body, n.link, n.image, n.cta, n.coupon, n.badge, n.theme,
+  n.expires_at AS expiresAt, n.popup, n.created_at AS createdAt`;
+const N_SELECT = `SELECT ${N_FIELDS} FROM notifications n`;
+
+const shape = (r) => ({ ...r, popup: !!r.popup });
 
 async function insertNotification(userId, n, createdBy = null) {
   const row = {
@@ -39,16 +44,24 @@ async function insertNotification(userId, n, createdBy = null) {
     body: str(n.body, 600),
     link: str(n.link, 300),
     image: str(n.image, 500),
+    cta: str(n.cta, 40),
+    coupon: str(n.coupon, 30),
+    badge: str(n.badge, 30),
+    theme: str(n.theme, 20),
+    expiresAt: n.expiresAt ? new Date(n.expiresAt) : null,
+    popup: n.popup ? 1 : 0,
     createdAt: now(),
     createdBy,
   };
   const info = await db.run(
-    `INSERT INTO notifications (user_id, kind, title, body, link, image, created_at, created_by)
-     VALUES (:userId, :kind, :title, :body, :link, :image, :createdAt, :createdBy)`,
+    `INSERT INTO notifications
+       (user_id, kind, title, body, link, image, cta, coupon, badge, theme, expires_at, popup, created_at, created_by)
+     VALUES (:userId, :kind, :title, :body, :link, :image, :cta, :coupon, :badge, :theme, :expiresAt, :popup,
+             :createdAt, :createdBy)`,
     row,
   );
   const { userId: _u, createdBy: _c, ...rest } = row;
-  return { id: Number(info.insertId), ...rest, read: false };
+  return shape({ id: Number(info.insertId), ...rest, read: false });
 }
 
 async function pushAndRecord(notification, tokens) {
@@ -173,13 +186,30 @@ export function createNotificationRouter() {
     const rows = await db.all(`${N_SELECT} WHERE ${where} ORDER BY n.created_at DESC, n.id DESC LIMIT 100`, params);
     const seenAt = new Date(params.seenAt).getTime();
     res.json({
-      notifications: rows.map((r) => ({ ...r, read: new Date(r.createdAt).getTime() <= seenAt })),
+      notifications: rows.map((r) => shape({ ...r, read: new Date(r.createdAt).getTime() <= seenAt })),
       unread: await unreadCount(req.user.id),
     });
   }));
 
   router.get("/api/account/notifications/unread", requireUser, ah(async (req, res) => {
     res.json({ unread: await unreadCount(req.user.id) });
+  }));
+
+  // Store-wide offers are public: guests see them too, and a push tap opens one by id.
+  router.get("/api/broadcasts/featured", ah(async (req, res) => {
+    const offer = await db.get(
+      `${N_SELECT} WHERE n.user_id IS NULL AND n.popup = 1 AND n.created_at >= ?
+         AND (n.expires_at IS NULL OR n.expires_at > ?)
+       ORDER BY n.created_at DESC, n.id DESC LIMIT 1`,
+      [new Date(Date.now() - FEATURED_MAX_AGE_MS), now()],
+    );
+    res.json({ offer: offer ? shape({ ...offer, read: true }) : null });
+  }));
+
+  router.get("/api/broadcasts/:id", ah(async (req, res) => {
+    const row = await db.get(`${N_SELECT} WHERE n.id = ? AND n.user_id IS NULL`, [Number(req.params.id)]);
+    if (!row) return res.status(404).json({ error: "This offer is no longer available." });
+    res.json({ notification: shape({ ...row, read: true }) });
   }));
 
   router.post("/api/account/notifications/seen", requireUser, ah(async (req, res) => {
@@ -223,13 +253,14 @@ export function mountAdminNotifications(router) {
     const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
     const page = Math.max(Number(req.query.page) || 1, 1);
     const total = (await db.get("SELECT COUNT(*) n FROM notifications WHERE user_id IS NULL")).n;
-    const notifications = await db.all(
-      `SELECT n.id, n.kind, n.title, n.body, n.link, n.image, n.created_at AS createdAt,
-              n.push_sent AS pushSent, u.name AS createdByName
-       FROM notifications n LEFT JOIN users u ON u.id = n.created_by
-       WHERE n.user_id IS NULL
-       ORDER BY n.created_at DESC, n.id DESC LIMIT ${(page - 1) * limit}, ${limit}`,
-    );
+    const notifications = (
+      await db.all(
+        `SELECT ${N_FIELDS}, n.push_sent AS pushSent, u.name AS createdByName
+         FROM notifications n LEFT JOIN users u ON u.id = n.created_by
+         WHERE n.user_id IS NULL
+         ORDER BY n.created_at DESC, n.id DESC LIMIT ${(page - 1) * limit}, ${limit}`,
+      )
+    ).map(shape);
     const devices = await db.get(
       "SELECT COUNT(*) total, SUM(user_id IS NOT NULL) signedIn FROM push_tokens",
     );
@@ -255,15 +286,31 @@ export function mountAdminNotifications(router) {
     const body = str(req.body?.body, 600);
     const link = str(req.body?.link, 300);
     const image = str(req.body?.image, 500);
+    const cta = str(req.body?.cta, 40);
+    const coupon = str(req.body?.coupon, 30).toUpperCase();
+    const badge = str(req.body?.badge, 30);
+    const theme = str(req.body?.theme, 20) || "violet";
+    const popup = !!req.body?.popup;
+    const expiresRaw = str(req.body?.expiresAt, 40);
+    const expiresAt = expiresRaw ? new Date(expiresRaw) : null;
     const errors = {};
     if (!BROADCAST_KINDS.includes(kind)) errors.kind = "Choose notice or offer.";
     if (title.length < 3) errors.title = "Write a title of at least 3 characters.";
     if (body.length < 3) errors.body = "Write a message.";
     if (link && !/^(\/|https?:\/\/)/.test(link)) errors.link = "Links must start with / or http(s)://";
+    if (coupon && !/^[A-Z0-9][A-Z0-9_-]{1,29}$/.test(coupon)) {
+      errors.coupon = "Coupon codes use letters, numbers, - and _ only.";
+    }
+    if (!THEME_ACCENTS[theme]) errors.theme = "Choose one of the colour themes.";
+    if (expiresAt && Number.isNaN(expiresAt.getTime())) errors.expiresAt = "Pick a valid end time.";
+    else if (expiresAt && expiresAt.getTime() < Date.now() + 60_000) errors.expiresAt = "The end time must be in the future.";
     if (Object.keys(errors).length) {
       return res.status(400).json({ error: Object.values(errors)[0], errors });
     }
-    const notification = await broadcast({ kind, title, body, link, image }, req.user.id);
+    const notification = await broadcast(
+      { kind, title, body, link, image, cta, coupon, badge, theme, expiresAt, popup },
+      req.user.id,
+    );
     res.status(201).json({ notification });
   }));
 

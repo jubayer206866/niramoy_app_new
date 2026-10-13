@@ -1,4 +1,5 @@
-import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
+import { useEffect, useRef } from "react";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import { Avatar } from "../../components/ui";
@@ -30,6 +31,17 @@ export default function AccountPage() {
   const { toast } = useToast();
   const nav = useNavigate();
   const { unread } = useNotifications();
+  const { pathname } = useLocation();
+  const onDashboard = pathname === "/account" || pathname === "/account/";
+  const tabs = useRef<HTMLDivElement>(null);
+
+  // Keep the selected tab chip fully visible in the scrolling mobile tab row.
+  useEffect(() => {
+    tabs.current
+      ?.querySelector<HTMLElement>(".chip-active")
+      ?.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
+  }, [pathname]);
+
   const badge = (to: string) =>
     to === "/account/notifications" && unread > 0 ? (
       <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-coral-500 px-1 text-[10px] font-bold text-white">
@@ -39,7 +51,8 @@ export default function AccountPage() {
 
   return (
     <div className="grid gap-5 lg:grid-cols-[260px_1fr]">
-      <aside className="lg:sticky lg:top-[7.5rem] lg:self-start">
+      {/* On phones the profile card only heads the dashboard; other tabs start straight with their content. */}
+      <aside className={`lg:sticky lg:top-[7.5rem] lg:block lg:self-start ${onDashboard ? "" : "hidden"}`}>
         <div className="card p-4">
           <div className="flex items-center gap-3">
             <Avatar initials={user?.initials ?? "A"} className="h-12 w-12 text-base" />
@@ -93,7 +106,10 @@ export default function AccountPage() {
 
       <div className="min-w-0">
         {/* mobile tabs */}
-        <div className="scrollbar-none scroll-native -mx-1 mb-4 flex gap-1.5 overflow-x-auto px-1 lg:hidden">
+        <div
+          ref={tabs}
+          className="scrollbar-none scroll-native -mx-1 mb-4 flex gap-1.5 overflow-x-auto px-1 lg:hidden"
+        >
           {NAV.map((item) => (
             <NavLink
               key={item.to}

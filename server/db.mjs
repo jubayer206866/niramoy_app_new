@@ -258,6 +258,12 @@ const SCHEMA = [
     body VARCHAR(600) NOT NULL DEFAULT '',
     link VARCHAR(300) NOT NULL DEFAULT '',
     image VARCHAR(500) NOT NULL DEFAULT '',
+    cta VARCHAR(40) NOT NULL DEFAULT '',
+    coupon VARCHAR(30) NOT NULL DEFAULT '',
+    badge VARCHAR(30) NOT NULL DEFAULT '',
+    theme VARCHAR(20) NOT NULL DEFAULT '',
+    expires_at DATETIME(3) NULL,
+    popup TINYINT(1) NOT NULL DEFAULT 0,
     created_at DATETIME(3) NOT NULL,
     created_by INT NULL,
     push_sent INT NOT NULL DEFAULT 0,
@@ -291,9 +297,26 @@ const SCHEMA = [
   ) ${TABLE_OPTS}`,
 ];
 
-/** Create any missing tables. Safe to run on every boot. */
+/** Columns added after a table first shipped; CREATE TABLE IF NOT EXISTS won't add them. */
+const ADDED_COLUMNS = [
+  ["notifications", "cta", "VARCHAR(40) NOT NULL DEFAULT '' AFTER image"],
+  ["notifications", "coupon", "VARCHAR(30) NOT NULL DEFAULT '' AFTER cta"],
+  ["notifications", "badge", "VARCHAR(30) NOT NULL DEFAULT '' AFTER coupon"],
+  ["notifications", "theme", "VARCHAR(20) NOT NULL DEFAULT '' AFTER badge"],
+  ["notifications", "expires_at", "DATETIME(3) NULL AFTER theme"],
+  ["notifications", "popup", "TINYINT(1) NOT NULL DEFAULT 0 AFTER expires_at"],
+];
+
+/** Create any missing tables and columns. Safe to run on every boot. */
 export async function ensureSchema() {
   for (const sql of SCHEMA) await pool.query(sql);
+  const [existing] = await pool.query(
+    "SELECT TABLE_NAME t, COLUMN_NAME c FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE()",
+  );
+  const have = new Set(existing.map((r) => `${r.t}.${r.c}`));
+  for (const [table, column, def] of ADDED_COLUMNS) {
+    if (!have.has(`${table}.${column}`)) await pool.query(`ALTER TABLE ${table} ADD COLUMN ${column} ${def}`);
+  }
 }
 
 export default db;

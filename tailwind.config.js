@@ -110,6 +110,49 @@ export default {
           "0%": { transform: "translateX(0)" },
           "100%": { transform: "translateX(-50%)" },
         },
+        // ---- offer pop-ups and notification banners
+        offerIn: {
+          "0%": { opacity: "0", transform: "translateY(48px) scale(.86)" },
+          "55%": { opacity: "1", transform: "translateY(-8px) scale(1.02)" },
+          "80%": { transform: "translateY(2px) scale(.995)" },
+          "100%": { opacity: "1", transform: "translateY(0) scale(1)" },
+        },
+        kenburns: {
+          "0%": { transform: "scale(1) translate(0,0)" },
+          "100%": { transform: "scale(1.14) translate(-2%,-3%)" },
+        },
+        shine: {
+          "0%": { transform: "translateX(-150%) skewX(-20deg)" },
+          "45%,100%": { transform: "translateX(350%) skewX(-20deg)" },
+        },
+        confetti: {
+          "0%": { transform: "translate3d(0,-12vh,0) rotate(0deg)", opacity: "1" },
+          "85%": { opacity: "1" },
+          "100%": { transform: "translate3d(var(--dx,0),105vh,0) rotate(var(--spin,720deg))", opacity: "0" },
+        },
+        bannerIn: {
+          "0%": { opacity: "0", transform: "translateY(-120%) scale(.96)" },
+          "65%": { opacity: "1", transform: "translateY(6%) scale(1.01)" },
+          "100%": { opacity: "1", transform: "translateY(0) scale(1)" },
+        },
+        drain: {
+          "0%": { transform: "scaleX(1)" },
+          "100%": { transform: "scaleX(0)" },
+        },
+        heartbeat: {
+          "0%,100%": { transform: "scale(1)" },
+          "12%": { transform: "scale(1.045)" },
+          "24%": { transform: "scale(1)" },
+          "36%": { transform: "scale(1.03)" },
+        },
+        wiggle: {
+          "0%,100%": { transform: "rotate(-6deg)" },
+          "50%": { transform: "rotate(6deg)" },
+        },
+        glow: {
+          "0%,100%": { opacity: ".55", transform: "scale(1)" },
+          "50%": { opacity: ".9", transform: "scale(1.15)" },
+        },
       },
       animation: {
         rise: "rise .28s cubic-bezier(.22,1,.36,1)",
@@ -119,6 +162,15 @@ export default {
         shimmer: "shimmer 1.6s linear infinite",
         pop: "pop .3s cubic-bezier(.22,1,.36,1)",
         marquee: "marquee 26s linear infinite",
+        offerIn: "offerIn .7s cubic-bezier(.22,1,.36,1) both",
+        kenburns: "kenburns 12s ease-in-out infinite alternate",
+        shine: "shine 3.2s ease-in-out infinite",
+        confetti: "confetti 2.8s cubic-bezier(.25,.6,.45,1) forwards",
+        bannerIn: "bannerIn .55s cubic-bezier(.22,1,.36,1) both",
+        drain: "drain linear forwards",
+        heartbeat: "heartbeat 2.4s ease-in-out infinite",
+        wiggle: "wiggle 1.4s ease-in-out infinite",
+        glow: "glow 3s ease-in-out infinite",
       },
     },
   },

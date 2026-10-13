@@ -38,7 +38,7 @@ export default function AuthShell({
               Niramoy <span className="text-brand-200">Pharmacy</span>
             </span>
           </Link>
-          <h2 className="mt-10 font-display text-3xl font-extrabold leading-tight">
+          <h2 className="mt-10 font-display text-3xl font-extrabold leading-tight text-white">
             Your pharmacy,
             <br /> always in your pocket.
           </h2>

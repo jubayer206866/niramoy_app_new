@@ -35,6 +35,8 @@ export interface Category {
   icon: string;
   hasPage: boolean;
   productCount: number;
+  /** Up to three popular product photos, used when the icon is a placeholder. */
+  thumbs?: string[];
 }
 
 export interface Banner {
@@ -149,6 +151,16 @@ export interface AppNotification {
   body: string;
   link: string;
   image: string;
+  /** Button label on offer cards ("Shop now"). */
+  cta?: string;
+  coupon?: string;
+  /** Short ribbon such as "30% OFF". */
+  badge?: string;
+  /** Key of OFFER_THEMES. */
+  theme?: string;
+  expiresAt?: string | null;
+  /** Show as a full-screen pop-up when it arrives while the app is open. */
+  popup?: boolean;
   createdAt: string;
   read: boolean;
 }
@@ -421,6 +433,8 @@ export const api = {
   notifications: () =>
     get<{ notifications: AppNotification[]; unread: number }>("/api/account/notifications"),
   unreadNotifications: () => get<{ unread: number }>("/api/account/notifications/unread"),
+  featuredOffer: () => get<{ offer: AppNotification | null }>("/api/broadcasts/featured"),
+  broadcast: (id: number) => get<{ notification: AppNotification }>(`/api/broadcasts/${id}`),
   markNotificationsSeen: () =>
     request<{ unread: number }>("/api/account/notifications/seen", { method: "POST" }),
   registerPush: (token: string, platform: string) =>

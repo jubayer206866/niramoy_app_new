@@ -13,6 +13,16 @@ const SCOPE = "https://www.googleapis.com/auth/firebase.messaging";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 export const ANDROID_CHANNEL = "general";
 
+/** Offer colour themes; keys match src/offerThemes.ts, values tint the Android notification. */
+export const THEME_ACCENTS = {
+  violet: "#6A3DF0",
+  sunset: "#F43F5E",
+  emerald: "#059669",
+  ocean: "#0284C7",
+  gold: "#D97706",
+  midnight: "#4F46E5",
+};
+
 let account;
 function serviceAccount() {
   if (account !== undefined) return account;
@@ -66,28 +76,53 @@ function absoluteImage(image) {
   return base ? `${base}${image.startsWith("/") ? "" : "/"}${image}` : undefined;
 }
 
+const endsLabel = (iso) =>
+  new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: "Asia/Dhaka" });
+
+/**
+ * The tray copy. Android shows `image` as a big picture when expanded and as
+ * a thumbnail when collapsed; coupon and deadline are appended to the text.
+ */
+export function pushMessage(n) {
+  const extras = [n.coupon && `Use code ${n.coupon}`, n.expiresAt && `Ends ${endsLabel(n.expiresAt)}`].filter(Boolean);
+  return {
+    title: n.badge ? `${n.title} · ${n.badge}` : n.title,
+    body: extras.length ? `${n.body}\n${extras.join(" · ")}` : n.body,
+    image: absoluteImage(n.image),
+    color: THEME_ACCENTS[n.theme] || THEME_ACCENTS.violet,
+  };
+}
+
 async function sendOne(token, n, bearer) {
   const sa = serviceAccount();
-  const image = absoluteImage(n.image);
+  const { title, body, image, color } = pushMessage(n);
   const res = await fetch(`https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`, {
     method: "POST",
     headers: { Authorization: `Bearer ${bearer}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       message: {
         token,
-        notification: { title: n.title, body: n.body, ...(image ? { image } : {}) },
+        notification: { title, body, ...(image ? { image } : {}) },
         // data values must be strings
-        data: { id: String(n.id), kind: n.kind, link: n.link || "" },
+        data: { id: String(n.id), kind: n.kind, link: n.link || "", popup: n.popup ? "1" : "0" },
         android: {
           priority: "high",
-          notification: { channel_id: ANDROID_CHANNEL, sound: "default", tag: `n${n.id}` },
+          notification: {
+            channel_id: ANDROID_CHANNEL,
+            sound: "default",
+            tag: `n${n.id}`,
+            color,
+            notification_priority: "PRIORITY_HIGH",
+            visibility: "PUBLIC",
+            ...(image ? { image } : {}),
+          },
         },
       },
     }),
   });
   if (res.ok) return "sent";
-  const body = await res.json().catch(() => ({}));
-  const code = body?.error?.details?.find((d) => d.errorCode)?.errorCode || body?.error?.status;
+  const failure = await res.json().catch(() => ({}));
+  const code = failure?.error?.details?.find((d) => d.errorCode)?.errorCode || failure?.error?.status;
   if (res.status === 404 || code === "UNREGISTERED" || code === "INVALID_ARGUMENT") return "invalid";
   throw new Error(`FCM ${res.status} ${code || ""}`);
 }

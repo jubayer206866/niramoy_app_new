@@ -100,9 +100,21 @@ export interface BroadcastPayload {
   body: string;
   link: string;
   image: string;
+  /** Button label, e.g. "Shop now". */
+  cta: string;
+  coupon: string;
+  /** Ribbon text, e.g. "30% OFF". */
+  badge: string;
+  /** Key of OFFER_THEMES. */
+  theme: string;
+  /** ISO time the offer ends, or "" for no countdown. */
+  expiresAt: string;
+  /** Open as a full-screen pop-up in the app. */
+  popup: boolean;
 }
 
-export interface AdminNotification extends BroadcastPayload {
+export interface AdminNotification extends Omit<BroadcastPayload, "expiresAt"> {
+  expiresAt: string | null;
   id: number;
   createdAt: string;
   pushSent?: number;

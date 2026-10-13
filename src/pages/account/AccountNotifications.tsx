@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { api, type AppNotification } from "../../api";
 import { imgUrl, useFetch } from "../../lib";
 import { onLive } from "../../live";
@@ -7,6 +7,7 @@ import { useNotifications } from "../../context/NotificationContext";
 import { EmptyState, SectionHeading } from "../../components/ui";
 import { ErrorBox, PageLoading } from "../../components/Errors";
 import { NotificationIcon, notificationLabel } from "../../components/NotificationIcon";
+import { OfferCard } from "../../components/OfferCard";
 import { Bell, ChevronRight } from "../../components/Icons";
 
 const FILTERS = [
@@ -27,9 +28,19 @@ function timeAgo(iso: string) {
   return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
+/** Offers and decorated notices get the full marketing card; order and wallet updates stay compact. */
+const isRich = (n: AppNotification) =>
+  n.kind === "offer" || (n.kind === "notice" && !!(n.image || n.badge || n.coupon || n.theme));
+
 export default function AccountNotifications() {
   const { data, loading, error } = useFetch(() => api.notifications(), []);
-  const { markAllSeen } = useNotifications();
+  const { markAllSeen, showOffer } = useNotifications();
+  const navigate = useNavigate();
+  const openLink = (link: string) => {
+    if (!link) return;
+    if (/^https?:\/\//.test(link)) window.open(link, "_blank", "noreferrer");
+    else navigate(link);
+  };
   const [live, setLive] = useState<AppNotification[]>([]);
   const [filter, setFilter] = useState<Filter>("all");
 
@@ -86,6 +97,27 @@ export default function AccountNotifications() {
       ) : (
         <ul className="space-y-2">
           {items.map((n) => {
+            if (isRich(n)) {
+              return (
+                <li
+                  key={n.id}
+                  className="cursor-pointer py-1 motion-safe:animate-fadeUp"
+                  onClick={() => showOffer(n)}
+                >
+                  <OfferCard
+                    offer={n}
+                    variant="inbox"
+                    onAction={() => openLink(n.link)}
+                    meta={
+                      <p className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                        {!n.read && <span className="h-2 w-2 rounded-full bg-coral-500" aria-label="New" />}
+                        {notificationLabel(n.kind)} · {timeAgo(n.createdAt)}
+                      </p>
+                    }
+                  />
+                </li>
+              );
+            }
             const body = (
               <>
                 <NotificationIcon kind={n.kind} />

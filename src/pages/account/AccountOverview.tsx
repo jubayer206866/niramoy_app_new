@@ -33,14 +33,18 @@ export default function AccountOverview() {
   return (
     <div className="space-y-5">
       {/* welcome */}
-      <section className="relative overflow-hidden rounded-3xl bg-brand-gradient p-5 text-white shadow-lift sm:p-6">
-        <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10" />
+      <section
+        className="relative overflow-hidden rounded-3xl p-5 text-white shadow-lift sm:p-6"
+        style={{ background: "linear-gradient(140deg,#2e1574 0%,#4b25ab 38%,#6a3df0 78%,#8b5cf6 100%)" }}
+      >
+        <div className="pointer-events-none absolute -right-12 -top-14 h-44 w-44 rounded-full bg-accent-400/30 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-fuchsia-400/20 blur-3xl" />
         <div className="relative flex flex-wrap items-center gap-4">
-          <Avatar initials={user?.initials ?? "A"} className="h-14 w-14 text-lg" />
-          <div className="min-w-0">
-            <p className="text-xs uppercase tracking-wider text-white/75">Welcome back</p>
-            <h1 className="font-display text-2xl font-extrabold">{user?.name}</h1>
-            <p className="text-sm text-white/85">
+          <Avatar initials={user?.initials ?? "A"} className="h-14 w-14 text-lg ring-4 ring-white/25" />
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold uppercase tracking-wider text-accent-200">Welcome back 👋</p>
+            <h1 className="break-words font-display text-2xl font-extrabold leading-tight text-white">{user?.name}</h1>
+            <p className="text-sm text-white/80">
               Member since{" "}
               {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : "today"}
             </p>

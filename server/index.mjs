@@ -96,13 +96,33 @@ function parseSort(sort) {
 }
 
 // ---------- routes ----------
+/** A few popular product photos per category, for tiles whose icon is missing or unsuitable. */
+const THUMBS_TTL_MS = 10 * 60e3;
+let thumbsCache = { at: 0, bySlug: new Map() };
+async function categoryThumbs(slugs) {
+  if (Date.now() - thumbsCache.at < THUMBS_TTL_MS) return thumbsCache.bySlug;
+  const bySlug = new Map();
+  for (const slug of slugs) {
+    const rows = await db.all(
+      `SELECT p.image FROM product_categories pc JOIN products p ON p.id = pc.product_id
+       WHERE pc.category_slug = ? AND p.hidden = 0 AND p.stock_status = 1 AND p.image LIKE 'img/products/%'
+       ORDER BY p.trending_score DESC, p.id LIMIT 3`,
+      [slug],
+    );
+    bySlug.set(slug, rows.map((r) => r.image));
+  }
+  thumbsCache = { at: Date.now(), bySlug };
+  return bySlug;
+}
+
 app.get("/api/categories", ah(async (_req, res) => {
   const rows = await db.all(
     `SELECT c.slug, c.name, c.icon, c.has_page AS hasPage,
       (SELECT COUNT(*) FROM product_categories pc WHERE pc.category_slug = c.slug) AS productCount
     FROM categories c ORDER BY c.id`,
   );
-  res.json(rows.map((r) => ({ ...r, hasPage: !!r.hasPage })));
+  const thumbs = await categoryThumbs(rows.filter((r) => r.hasPage).map((r) => r.slug));
+  res.json(rows.map((r) => ({ ...r, hasPage: !!r.hasPage, thumbs: thumbs.get(r.slug) ?? [] })));
 }));
 
 app.get("/api/banners", ah(async (_req, res) => {

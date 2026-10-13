@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import { useFetch } from "../lib";
@@ -68,15 +68,30 @@ export default function ListingPage() {
   const totalPages = data ? Math.max(Math.ceil(data.total / LIMIT), 1) : 1;
   const activeCat = categories?.find((c) => c.slug === slug);
 
-  const update = (patch: Record<string, string | null>) => {
-    const next = new URLSearchParams(params);
-    for (const [k, v] of Object.entries(patch)) {
-      if (v === null || v === "") next.delete(k);
-      else next.set(k, v);
-    }
-    if (!("page" in patch)) next.delete("page");
-    setParams(next);
+  const update = (patch: Record<string, string | null>, opts?: { replace?: boolean }) => {
+    setParams((prev) => {
+      const next = new URLSearchParams(prev);
+      for (const [k, v] of Object.entries(patch)) {
+        if (v === null || v === "") next.delete(k);
+        else next.set(k, v);
+      }
+      if (!("page" in patch)) next.delete("page");
+      return next;
+    }, opts);
   };
+
+  useEffect(() => {
+    if (q !== qInput.trim()) setQInput(q);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q]);
+
+  useEffect(() => {
+    const term = qInput.trim();
+    if (term === q) return;
+    const t = window.setTimeout(() => update({ q: term || null }, { replace: true }), 400);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qInput]);
 
   const clearAll = () => {
     setMinPrice("");
@@ -279,17 +294,33 @@ export default function ListingPage() {
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              update({ q: qInput });
+              update({ q: qInput.trim() || null });
+              (document.activeElement as HTMLElement | null)?.blur();
             }}
             className="relative order-last w-full sm:order-none sm:w-56"
           >
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
+              type="search"
+              enterKeyHint="search"
               value={qInput}
               onChange={(e) => setQInput(e.target.value)}
               placeholder="Search in results…"
-              className="input py-2 pl-9"
+              className="input py-2 pl-9 pr-9 [&::-webkit-search-cancel-button]:hidden"
             />
+            {qInput && (
+              <button
+                type="button"
+                onClick={() => {
+                  setQInput("");
+                  update({ q: null });
+                }}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-full bg-slate-100 text-slate-500"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </form>
 
           <select

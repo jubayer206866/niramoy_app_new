@@ -16,6 +16,7 @@ import {
   Shield,
   Sparkles,
   Truck,
+  Wallet,
 } from "../components/Icons";
 
 /* ------------------------------------------------ mobile-native home (lg:hidden) */
@@ -122,43 +123,99 @@ function bannerLink(b: Banner) {
 }
 
 /** Circular icon strip - the native "app icon grid" pattern. */
+/** Pastel tile backgrounds, cycled through the category grid. */
+const TILE_TONES = [
+  "from-violet-50 to-violet-100",
+  "from-amber-50 to-orange-100",
+  "from-emerald-50 to-emerald-100",
+  "from-sky-50 to-sky-100",
+  "from-rose-50 to-pink-100",
+  "from-lime-50 to-lime-100",
+  "from-indigo-50 to-indigo-100",
+  "from-teal-50 to-cyan-100",
+];
+
+const itemCount = (n: number) =>
+  n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1).replace(/\.0$/, "")}k items` : `${n} items`;
+
+/** Letter placeholders were generated as SVG; real category art is a photo. */
+const hasArtwork = (c: Category) => !!c.icon && !/\.svg$/i.test(c.icon);
+
 function MobileCategoryStrip({ categories }: { categories: Category[] }) {
-  const first = categories.slice(0, 4);
-  const rest = categories.slice(4, 10);
   return (
     <section aria-label="Shop by category">
-      <div className="grid grid-cols-4 gap-x-2 gap-y-4">
-        {first.map((c) => (
-          <MobileCategoryBubble key={c.slug} c={c} />
-        ))}
-      </div>
-      {rest.length > 0 && (
-        <div className="scrollbar-none scroll-native -mx-3.5 mt-4 flex gap-4 overflow-x-auto px-3.5 sm:-mx-5 sm:px-5">
-          {rest.map((c) => (
-            <div key={c.slug} className="w-[4.5rem] shrink-0">
-              <MobileCategoryBubble c={c} />
-            </div>
-          ))}
+      <div className="mb-3 flex items-end justify-between">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[.16em] text-brand-600">Explore</p>
+          <h2 className="font-display text-lg font-extrabold text-ink-900">Shop by category</h2>
         </div>
-      )}
+        <Link to="/products" className="flex items-center gap-0.5 text-xs font-bold text-brand-600">
+          See all <ChevronRight className="h-3.5 w-3.5" />
+        </Link>
+      </div>
+      <div className="grid grid-cols-4 gap-x-2.5 gap-y-3.5">
+        {categories.map((c, i) => (
+          <MobileCategoryTile key={c.slug} c={c} tone={TILE_TONES[i % TILE_TONES.length]} />
+        ))}
+        {categories.length % 4 !== 0 && (
+        <Link to="/products" className="flex flex-col items-center gap-1.5 active:scale-95">
+          <span className="grid aspect-square w-full place-items-center rounded-2xl bg-brand-gradient text-white shadow-glow">
+            <Grid className="h-7 w-7" />
+          </span>
+          <span className="text-center text-[11px] font-bold leading-tight text-ink-800">All products</span>
+          <span className="-mt-1 text-[10px] text-slate-400">Browse all</span>
+        </Link>
+        )}
+      </div>
     </section>
   );
 }
 
-function MobileCategoryBubble({ c }: { c: Category }) {
+function MobileCategoryTile({ c, tone }: { c: Category; tone: string }) {
+  const [wide, setWide] = useState(false);
+  const thumbs = c.thumbs ?? [];
+  const collage = (!hasArtwork(c) || wide) && thumbs.length > 0;
+
   return (
-    <Link to={`/category/${c.slug}`} className="group flex flex-col items-center gap-1.5">
-      <span className="relative grid h-16 w-16 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-brand-50 to-accent-50 ring-1 ring-brand-100 transition active:scale-95">
-        <Img
-          src={c.icon}
-          alt=""
-          wrapClassName="absolute inset-0 grid place-items-center"
-          className="h-11 w-11 object-contain"
-        />
+    <Link to={`/category/${c.slug}`} className="flex flex-col items-center gap-1.5 transition active:scale-95">
+      <span
+        className={`relative aspect-square w-full overflow-hidden rounded-2xl bg-gradient-to-br ${tone} shadow-card ring-1 ring-slate-900/5`}
+      >
+        {collage ? (
+          <>
+            {thumbs[1] && (
+              <span className="absolute left-[6%] top-[12%] w-[48%] -rotate-12 rounded-xl bg-white p-1 shadow-soft">
+                <img src={imgUrl(thumbs[1])} alt="" loading="lazy" className="aspect-square w-full object-contain" />
+              </span>
+            )}
+            {thumbs[2] && (
+              <span className="absolute right-[6%] top-[12%] w-[48%] rotate-12 rounded-xl bg-white p-1 shadow-soft">
+                <img src={imgUrl(thumbs[2])} alt="" loading="lazy" className="aspect-square w-full object-contain" />
+              </span>
+            )}
+            <span className="absolute bottom-[7%] left-1/2 z-10 w-[56%] -translate-x-1/2 rounded-xl bg-white p-1 shadow-lift">
+              <img src={imgUrl(thumbs[0])} alt="" loading="lazy" className="aspect-square w-full object-contain" />
+            </span>
+          </>
+        ) : hasArtwork(c) ? (
+          <img
+            src={imgUrl(c.icon)}
+            alt=""
+            loading="lazy"
+            onLoad={(e) => {
+              const img = e.currentTarget;
+              if (img.naturalWidth > img.naturalHeight * 1.4) setWide(true);
+            }}
+            className="absolute inset-0 h-full w-full object-contain p-1.5 mix-blend-multiply"
+          />
+        ) : (
+          <span className="absolute inset-0 grid place-items-center font-display text-2xl font-black text-brand-600/70">
+            {c.name.charAt(0)}
+          </span>
+        )}
       </span>
-      <span className="line-clamp-2 text-center text-[10.5px] font-bold leading-tight text-ink-800">
-        {c.name}
-      </span>
+      <span className="line-clamp-2 text-center text-[11px] font-bold leading-tight text-ink-800">{c.name}</span>
+      {c.productCount > 0 && <span className="-mt-1 text-[10px] text-slate-400">{itemCount(c.productCount)}</span>}
     </Link>
   );
 }
@@ -187,6 +244,59 @@ function MobileQuickPills() {
   );
 }
 
+/** Brand welcome card at the top of the phone home screen. */
+function MobileHero() {
+  const perks = [
+    { icon: <Shield className="h-4 w-4" />, label: "100% genuine" },
+    { icon: <Truck className="h-4 w-4" />, label: "Fast delivery" },
+    { icon: <Wallet className="h-4 w-4" />, label: "Cash on delivery" },
+  ];
+  return (
+    <section
+      className="relative overflow-hidden rounded-[1.75rem] p-5 text-white shadow-lift"
+      style={{ background: "linear-gradient(140deg,#2e1574 0%,#4b25ab 38%,#6a3df0 78%,#8b5cf6 100%)" }}
+    >
+      <div className="pointer-events-none absolute -right-12 -top-16 h-44 w-44 rounded-full bg-accent-400/35 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-20 -left-10 h-48 w-48 rounded-full bg-fuchsia-400/25 blur-3xl" />
+      <div className="pointer-events-none absolute right-4 top-4 h-16 w-16 rounded-2xl border border-white/15 bg-white/5 rotate-12" />
+      <div className="pointer-events-none absolute right-12 top-14 h-8 w-8 rounded-xl border border-white/10 bg-white/5 -rotate-6" />
+
+      <div className="relative">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white ring-1 ring-white/20 backdrop-blur">
+          <Sparkles className="h-3.5 w-3.5 text-accent-300" /> Trusted by 1M+ customers
+        </span>
+        <h1 className="mt-3 font-display text-[1.6rem] font-extrabold leading-[1.15] text-white">
+          Medicine, beauty &amp; everyday care,{" "}
+          <span className="text-accent-300">delivered in hours.</span>
+        </h1>
+        <p className="mt-2 text-[13px] leading-relaxed text-white/85">
+          Authentic products from licensed distributors, prescription upload, cold-chain handling and cash on
+          delivery across Bangladesh.
+        </p>
+
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          {perks.map((p) => (
+            <div
+              key={p.label}
+              className="flex flex-col items-center gap-1 rounded-2xl bg-white/10 px-1.5 py-2.5 text-center ring-1 ring-white/15 backdrop-blur"
+            >
+              <span className="grid h-7 w-7 place-items-center rounded-full bg-white text-brand-700">{p.icon}</span>
+              <span className="text-[11px] font-semibold leading-tight text-white">{p.label}</span>
+            </div>
+          ))}
+        </div>
+
+        <Link
+          to="/products"
+          className="mt-4 flex items-center justify-center gap-1.5 rounded-2xl bg-white py-3 text-sm font-bold text-brand-700 shadow-soft transition active:scale-[.98]"
+        >
+          Shop now <ChevronRight className="h-4 w-4" />
+        </Link>
+      </div>
+    </section>
+  );
+}
+
 /** Compact reassurance banner styled like a native info card. */
 function MobileTrustCard() {
   return (
@@ -196,7 +306,7 @@ function MobileTrustCard() {
       </span>
       <div className="min-w-0 flex-1">
         <p className="text-[13px] font-bold text-ink-900">Free delivery over ৳1,000</p>
-        <p className="truncate text-[11px] text-slate-500">
+        <p className="text-[11px] leading-snug text-slate-500">
           Cash on delivery · 24–48h inside Dhaka · genuine products only
         </p>
       </div>
@@ -555,21 +665,7 @@ export default function HomePage() {
       {/* ---------------- mobile-native home (phones, <lg) ---------------- */}
       <div className="space-y-5 lg:hidden">
         {/* greeting + search entry (search field itself lives in the header) */}
-        <div className="relative overflow-hidden rounded-3xl bg-brand-gradient p-4 text-white shadow-lift">
-          <div className="pointer-events-none absolute inset-0 bg-mesh opacity-90" />
-          <div className="pointer-events-none absolute -right-10 -top-14 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
-          <div className="relative">
-            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/75">
-              Niramoy Pharmacy
-            </p>
-            <h1 className="mt-1 font-display text-xl font-extrabold leading-snug">
-              Medicine, beauty &amp; care —{" "}
-              <span className="text-accent-200">delivered in hours.</span>
-            </h1>
-            <p className="mt-1.5 text-xs text-white/85">󰈀 1M+ customers · genuine products only
-            </p>
-          </div>
-        </div>
+        <MobileHero />
 
         <MobileQuickPills />
         <MobileBanners banners={data.banners} />
